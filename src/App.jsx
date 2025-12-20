@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 
 // Tailwind doesn't ship this keyframe by default; we inline a tiny utility via an arbitrary animation.
 // (Used in the shimmer overlay.)
@@ -37,7 +37,6 @@ async function getCachedImageUrl(cardId, specialUrl) {
     return specialUrl;
   }
 }
-
 
 // --- Card Data (extensible) ---
 // Rider–Waite images are public domain
@@ -158,9 +157,6 @@ const DECKS = {
 
 const ACTIVE_DECK_ID = "riderWaite";
 
-const commonsFileUrl = (fileName) =>
-  `https://upload.wikimedia.org/wikipedia/commons/${fileName}`;
-
 // Wikimedia file URLs include a hashed path we don't want to hardcode.
 // Instead, we use the stable Commons "Special:FilePath" redirect.
 const commonsFilePath = (fileName) =>
@@ -201,7 +197,7 @@ const buildDeckCards = (deck) => {
 const ACTIVE_DECK = DECKS[ACTIVE_DECK_ID];
 const CARDS = buildDeckCards(ACTIVE_DECK);
 
-const POSITIONS = ["Past", "Present", "Future"]; 
+const POSITIONS = ["Past", "Present", "Future"];
 
 // Shimmer keyframes (Tailwind arbitrary animation uses this name)
 const animStyle = `@keyframes shimmer { 0% { transform: translateX(-60%); } 100% { transform: translateX(60%); } }
@@ -210,27 +206,27 @@ const animStyle = `@keyframes shimmer { 0% { transform: translateX(-60%); } 100%
 function TarotCard({ card, position, index = 0 }) {
   return (
     <div
-      className="bg-neutral-950 p-4 flex flex-col"
+      className="bg-neutral-950 p-4 flex flex-col h-full"
       style={{ transitionDelay: `${index * 80}ms` }}
     >
       <h2 className="text-sm uppercase tracking-widest text-neutral-500 mb-4">{position}</h2>
 
       {/* Image only renders after the whole spread has been preloaded */}
-      <div className="relative rounded-xl overflow-hidden mb-3 group">
+      <div className="relative rounded-xl overflow-hidden mb-3 group aspect-[3/5] bg-neutral-950">
         <div className="transition-transform duration-200 ease-out group-hover:-translate-y-1">
           <img
             src={card.img}
             alt={card.name}
             decoding="async"
             loading="eager"
-            className="w-full rounded-xl"
+            className="w-full h-full object-contain"
           />
         </div>
       </div>
 
-      <div className="mt-6 pt-4 border-t border-neutral-800">
-        <h3 className="text-xl font-light tracking-tight leading-snug mb-2">{card.name}</h3>
-        <p className="text-base text-neutral-300 leading-relaxed">{card.meaning}</p>
+      <div className="mt-6 pt-4 border-t border-neutral-800 flex flex-col flex-grow">
+        <h3 className="text-xl font-light tracking-tight leading-snug mb-2 min-h-[2.75rem]">{card.name}</h3>
+        <p className="text-base text-neutral-300 leading-relaxed flex-grow">{card.meaning}</p>
       </div>
     </div>
   );
@@ -258,12 +254,10 @@ async function preloadSpreadCards(cards) {
   return withResolved;
 }
 
-
 export default function TarotApp() {
   const [spread, setSpread] = useState([]);
   const [history, setHistory] = useState([]);
   const [isDrawing, setIsDrawing] = useState(false);
-  const [loadedCount, setLoadedCount] = useState(0);
 
   useEffect(() => {
     const saved = localStorage.getItem("tarot-history");
@@ -275,8 +269,8 @@ export default function TarotApp() {
   }, [history]);
 
   const drawSpread = async () => {
+    const start = performance.now();
     setIsDrawing(true);
-    setLoadedCount(0);
     setSpread([]); // don't render any images until all 3 are ready
 
     const shuffled = [...CARDS].sort(() => Math.random() - 0.5);
@@ -285,9 +279,14 @@ export default function TarotApp() {
 
     const ready = await preloadSpreadCards(draw);
 
+    // Ensure loading state lasts at least 200ms
+    const elapsed = performance.now() - start;
+    if (elapsed < 200) {
+      await new Promise((res) => setTimeout(res, 200 - elapsed));
+    }
+
     setSpread(ready);
     setHistory([{ timestamp, cards: ready }, ...history]);
-    setLoadedCount(3);
     setIsDrawing(false);
   };
   // Images are preloaded as a batch; no per-card load callback needed.
@@ -300,16 +299,15 @@ export default function TarotApp() {
         <p className="sr-only">Tarot reading</p>
 
         {/* Co–Star-style section divider */}
-        <div className="h-px w-full bg-neutral-800/50 mb-12" />
+        <div className="h-px w-full bg-neutral-800/50 mb-8" />
 
-        <div className="mb-16">
+        <div className="mb-6 md:mb-8">
           <button
             onClick={drawSpread}
-            className="group relative text-left"
+            disabled={isDrawing}
+            className="group relative text-left disabled:opacity-60 disabled:cursor-not-allowed"
           >
-            <div className="text-xs uppercase tracking-[0.3em] text-neutral-500 mb-2">
-              What’s unfolding
-            </div>
+            <div className="text-xs uppercase tracking-[0.3em] text-neutral-500 mb-2">What’s unfolding</div>
             <div className="flex items-center gap-4">
               <span className="text-2xl md:text-3xl font-light tracking-tight text-neutral-200 group-hover:text-neutral-100 transition">
                 Continue
@@ -318,54 +316,88 @@ export default function TarotApp() {
             </div>
           </button>
 
-          {(isDrawing || loadedCount > 0) && (
-            <div className="mt-6">
-              <div className="flex items-center gap-3 text-xs uppercase tracking-[0.3em] text-neutral-500">
-                <span className="inline-flex items-center gap-2">
-                  <span className="inline-block w-2 h-2 rounded-full bg-neutral-600 animate-pulse" />
-                  Loading
-                </span>
-                <span className="text-neutral-700">{Math.min(loadedCount, 3)}/3</span>
-              </div>
-              <div className="mt-3 h-px w-full bg-neutral-900 overflow-hidden">
-                <div
-                  className="h-px bg-neutral-700 transition-all duration-300"
-                  style={{ width: `${(Math.min(loadedCount, 3) / 3) * 100}%` }}
-                />
+          {isDrawing && (
+            <div className="mt-8">
+              <div className="text-xs uppercase tracking-[0.3em] text-neutral-500">Drawing</div>
+              <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-10">
+                {POSITIONS.map((label) => (
+                  <div key={label} className="bg-neutral-950 p-4 flex flex-col h-full">
+                    <div className="text-sm uppercase tracking-widest text-neutral-600 mb-4">{label}</div>
+
+                    <div className="relative rounded-xl overflow-hidden mb-3 aspect-[3/5] bg-neutral-900/40">
+                      <div
+                        className="absolute inset-0 opacity-40"
+                        style={{
+                          background:
+                            "linear-gradient(90deg, transparent, rgba(255,255,255,0.06), transparent)",
+                          animation: "shimmer 1.2s linear infinite",
+                        }}
+                      />
+                    </div>
+
+                    <div className="mt-6 pt-4 border-t border-neutral-900 flex flex-col flex-grow">
+                      <div className="h-6 w-2/3 bg-neutral-900/40 rounded-sm" />
+                      <div className="mt-3 h-4 w-4/5 bg-neutral-900/30 rounded-sm" />
+                      <div className="mt-2 h-4 w-3/5 bg-neutral-900/30 rounded-sm" />
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
           )}
         </div>
-        {spread.length > 0 && (
+
+        {!isDrawing && spread.length > 0 && (
           <>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-12 mb-16">
-            {spread.map((card, i) => (
-              <TarotCard
-                key={card.id}
-                card={card}
-                position={POSITIONS[i]}
-                index={i}
-              />
-            ))}
-          </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-10 mb-6 md:mb-8">
+              {spread.map((card, i) => (
+                <TarotCard key={card.id} card={card} position={POSITIONS[i]} index={i} />
+              ))}
+            </div>
+
+            {/* AI Reading CTA */}
+            <div className="mb-12 md:mb-16 flex justify-center">
+              <button
+                className="group w-full max-w-md rounded-2xl border border-neutral-800 bg-neutral-950/60 px-6 py-6 text-center transition hover:border-neutral-600 hover:bg-neutral-950 focus:outline-none"
+                onClick={() => {
+                  /* TODO: trigger LLM reading */
+                }}
+              >
+                <div className="flex flex-col items-center gap-3">
+                  <span className="text-2xl md:text-3xl font-light tracking-tight text-neutral-100">
+                    Get a reading
+                  </span>
+                  <span className="inline-block h-px w-12 bg-neutral-600 group-hover:w-20 transition-all duration-300" />
+                  <span className="text-xs tracking-wide text-neutral-400">
+                    For reflection — not certainty.
+                  </span>
+                </div>
+              </button>
+            </div>
           </>
         )}
 
         {history.length > 0 && (
           <div>
             {/* Co–Star-style section divider */}
-            <div className="h-px w-full bg-neutral-800/50 mb-10" />
+            <div className="h-px w-full bg-neutral-800/50 mb-8" />
 
             <h2 className="text-xs uppercase tracking-[0.3em] text-neutral-500 mb-6">History</h2>
             <div className="space-y-0">
               {history.slice(0, 5).map((entry, idx) => (
-                <div key={idx} className="py-4 border-t border-neutral-800 text-sm">
+                <div key={idx} className="py-4 text-sm">
+                  <div className="mb-4 flex justify-start">
+                    <span className="h-px w-10 bg-neutral-800" />
+                  </div>
                   <div className="text-neutral-500 text-xs uppercase tracking-[0.25em] mb-3">
                     {new Date(entry.timestamp).toLocaleString()}
                   </div>
                   <div className="flex gap-2 flex-wrap">
                     {(Array.isArray(entry.cards) ? entry.cards : []).map((c) => (
-                      <span key={c.id} className="px-2 py-1 bg-neutral-950 border border-neutral-800 text-xs uppercase tracking-wide text-neutral-300">
+                      <span
+                        key={c.id}
+                        className="px-2 py-1 bg-neutral-950 border border-neutral-800 text-xs uppercase tracking-wide text-neutral-300"
+                      >
                         {c.name}
                       </span>
                     ))}
