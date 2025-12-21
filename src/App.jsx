@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { RWS_DESCRIPTIONS } from "./data/descriptions";
 
 // Tailwind doesn't ship this keyframe by default; we inline a tiny utility via an arbitrary animation.
 // (Used in the shimmer overlay.)
