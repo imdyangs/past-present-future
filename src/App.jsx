@@ -310,7 +310,7 @@ export default function TarotApp() {
             <div className="text-xs uppercase tracking-[0.3em] text-neutral-500 mb-2">What’s unfolding</div>
             <div className="flex items-center gap-4">
               <span className="text-2xl md:text-3xl font-light tracking-tight text-neutral-200 group-hover:text-neutral-100 transition">
-                Continue
+                Reveal
               </span>
               <span className="inline-block h-px w-12 bg-neutral-700 group-hover:w-20 transition-all duration-300" />
             </div>
