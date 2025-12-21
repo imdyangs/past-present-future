@@ -1,5 +1,6 @@
+// src/App.jsx
 import { useState, useEffect } from "react";
-import { RWS_DESCRIPTIONS } from "./data/descriptions";
+import { getDeck } from "./data/decks";
 
 // Tailwind doesn't ship this keyframe by default; we inline a tiny utility via an arbitrary animation.
 // (Used in the shimmer overlay.)
@@ -39,166 +40,89 @@ async function getCachedImageUrl(cardId, specialUrl) {
   }
 }
 
-// --- Card Data (extensible) ---
-// Rider–Waite images are public domain
-// Decks are extensible: add new decks with their own image + meaning sets
-const DECKS = {
-  riderWaite: {
-    id: "riderWaite",
-    label: "Rider–Waite (RWS)",
-    // Public-domain scans commonly used across Wikipedia/Wikimedia Commons
-    majorArcana: [
-      { no: "00", name: "The Fool", file: "RWS_Tarot_00_Fool.jpg", meaning: "Beginnings, openness, leap of faith" },
-      { no: "01", name: "The Magician", file: "RWS_Tarot_01_Magician.jpg", meaning: "Willpower, skill, making it real" },
-      { no: "02", name: "The High Priestess", file: "RWS_Tarot_02_High_Priestess.jpg", meaning: "Intuition, inner knowing, mystery" },
-      { no: "03", name: "The Empress", file: "RWS_Tarot_03_Empress.jpg", meaning: "Nurture, abundance, growth" },
-      { no: "04", name: "The Emperor", file: "RWS_Tarot_04_Emperor.jpg", meaning: "Structure, authority, stability" },
-      { no: "05", name: "The Hierophant", file: "RWS_Tarot_05_Hierophant.jpg", meaning: "Tradition, learning, guidance" },
-      { no: "06", name: "The Lovers", file: "RWS_Tarot_06_Lovers.jpg", meaning: "Union, values, choice" },
-      { no: "07", name: "The Chariot", file: "RWS_Tarot_07_Chariot.jpg", meaning: "Drive, control, forward motion" },
-      { no: "08", name: "Strength", file: "RWS_Tarot_08_Strength.jpg", meaning: "Courage, patience, inner power" },
-      { no: "09", name: "The Hermit", file: "RWS_Tarot_09_Hermit.jpg", meaning: "Solitude, insight, guidance" },
-      { no: "10", name: "Wheel of Fortune", file: "RWS_Tarot_10_Wheel_of_Fortune.jpg", meaning: "Cycles, change, turning point" },
-      { no: "11", name: "Justice", file: "RWS_Tarot_11_Justice.jpg", meaning: "Fairness, truth, consequences" },
-      { no: "12", name: "The Hanged Man", file: "RWS_Tarot_12_Hanged_Man.jpg", meaning: "Pause, surrender, new perspective" },
-      { no: "13", name: "Death", file: "RWS_Tarot_13_Death.jpg", meaning: "Endings, transformation, release" },
-      { no: "14", name: "Temperance", file: "RWS_Tarot_14_Temperance.jpg", meaning: "Balance, blending, moderation" },
-      { no: "15", name: "The Devil", file: "RWS_Tarot_15_Devil.jpg", meaning: "Attachment, shadow, temptation" },
-      { no: "16", name: "The Tower", file: "RWS_Tarot_16_Tower.jpg", meaning: "Shock, upheaval, truth revealed" },
-      { no: "17", name: "The Star", file: "RWS_Tarot_17_Star.jpg", meaning: "Hope, renewal, guidance" },
-      { no: "18", name: "The Moon", file: "RWS_Tarot_18_Moon.jpg", meaning: "Uncertainty, dreams, intuition" },
-      { no: "19", name: "The Sun", file: "RWS_Tarot_19_Sun.jpg", meaning: "Joy, clarity, success" },
-      { no: "20", name: "Judgement", file: "RWS_Tarot_20_Judgement.jpg", meaning: "Awakening, reckoning, renewal" },
-      { no: "21", name: "The World", file: "RWS_Tarot_21_World.jpg", meaning: "Completion, integration, wholeness" },
-    ],
-    minorArcana: {
-      Wands: {
-        prefix: "Wands",
-        suitMeaning: "Drive, action, creativity",
-        cards: [
-          { n: "01", name: "Ace of Wands", meaning: "Spark, inspiration, new energy" },
-          { n: "02", name: "Two of Wands", meaning: "Planning, options, looking ahead" },
-          { n: "03", name: "Three of Wands", meaning: "Expansion, progress, momentum" },
-          { n: "04", name: "Four of Wands", meaning: "Stability, celebration, home base" },
-          { n: "05", name: "Five of Wands", meaning: "Friction, competition, testing" },
-          { n: "06", name: "Six of Wands", meaning: "Recognition, win, confidence" },
-          { n: "07", name: "Seven of Wands", meaning: "Defense, conviction, holding ground" },
-          { n: "08", name: "Eight of Wands", meaning: "Speed, messages, movement" },
-          { n: "09", name: "Nine of Wands", meaning: "Resilience, persistence, guarded" },
-          { n: "10", name: "Ten of Wands", meaning: "Burden, responsibility, strain" },
-          { n: "11", name: "Page of Wands", meaning: "Curiosity, bold start, exploration" },
-          { n: "12", name: "Knight of Wands", meaning: "Action, passion, impulsive push" },
-          { n: "13", name: "Queen of Wands", meaning: "Confidence, warmth, magnetism" },
-          { n: "14", name: "King of Wands", meaning: "Leadership, vision, command" },
-        ],
-      },
-      Cups: {
-        prefix: "Cups",
-        suitMeaning: "Emotion, connection, intuition",
-        cards: [
-          { n: "01", name: "Ace of Cups", meaning: "New feeling, openness, love" },
-          { n: "02", name: "Two of Cups", meaning: "Bond, mutuality, partnership" },
-          { n: "03", name: "Three of Cups", meaning: "Friendship, joy, community" },
-          { n: "04", name: "Four of Cups", meaning: "Apathy, reevaluation, pause" },
-          { n: "05", name: "Five of Cups", meaning: "Loss, regret, grief" },
-          { n: "06", name: "Six of Cups", meaning: "Nostalgia, innocence, past" },
-          { n: "07", name: "Seven of Cups", meaning: "Choices, fantasy, overwhelm" },
-          { n: "08", name: "Eight of Cups", meaning: "Leaving, seeking, moving on" },
-          { n: "09", name: "Nine of Cups", meaning: "Satisfaction, wish, pleasure" },
-          { n: "10", name: "Ten of Cups", meaning: "Harmony, family, fulfillment" },
-          { n: "11", name: "Page of Cups", meaning: "Tenderness, new feelings, message" },
-          { n: "12", name: "Knight of Cups", meaning: "Romance, invitation, idealism" },
-          { n: "13", name: "Queen of Cups", meaning: "Empathy, calm, emotional depth" },
-          { n: "14", name: "King of Cups", meaning: "Emotional mastery, steadiness" },
-        ],
-      },
-      Swords: {
-        prefix: "Swords",
-        suitMeaning: "Mind, truth, conflict",
-        cards: [
-          { n: "01", name: "Ace of Swords", meaning: "Clarity, truth, breakthrough" },
-          { n: "02", name: "Two of Swords", meaning: "Stalemate, indecision, guard" },
-          { n: "03", name: "Three of Swords", meaning: "Heartbreak, truth hurts" },
-          { n: "04", name: "Four of Swords", meaning: "Rest, recovery, retreat" },
-          { n: "05", name: "Five of Swords", meaning: "Conflict, ego, hollow win" },
-          { n: "06", name: "Six of Swords", meaning: "Transition, moving forward" },
-          { n: "07", name: "Seven of Swords", meaning: "Strategy, secrecy, evasion" },
-          { n: "08", name: "Eight of Swords", meaning: "Restriction, fear, stuck" },
-          { n: "09", name: "Nine of Swords", meaning: "Anxiety, worry, insomnia" },
-          { n: "10", name: "Ten of Swords", meaning: "End, collapse, finality" },
-          { n: "11", name: "Page of Swords", meaning: "Curiosity, alertness, honesty" },
-          { n: "12", name: "Knight of Swords", meaning: "Charge, urgency, bluntness" },
-          { n: "13", name: "Queen of Swords", meaning: "Discernment, boundaries, truth" },
-          { n: "14", name: "King of Swords", meaning: "Authority, logic, fairness" },
-        ],
-      },
-      Pentacles: {
-        prefix: "Pents",
-        suitMeaning: "Work, body, money",
-        cards: [
-          { n: "01", name: "Ace of Pentacles", meaning: "New opportunity, seed, value" },
-          { n: "02", name: "Two of Pentacles", meaning: "Balance, juggling, adapt" },
-          { n: "03", name: "Three of Pentacles", meaning: "Craft, teamwork, growth" },
-          { n: "04", name: "Four of Pentacles", meaning: "Holding, control, security" },
-          { n: "05", name: "Five of Pentacles", meaning: "Hardship, lack, isolation" },
-          { n: "06", name: "Six of Pentacles", meaning: "Giving, receiving, fairness" },
-          { n: "07", name: "Seven of Pentacles", meaning: "Patience, investment, wait" },
-          { n: "08", name: "Eight of Pentacles", meaning: "Practice, mastery, focus" },
-          { n: "09", name: "Nine of Pentacles", meaning: "Independence, comfort, reward" },
-          { n: "10", name: "Ten of Pentacles", meaning: "Legacy, wealth, stability" },
-          { n: "11", name: "Page of Pentacles", meaning: "Study, new work, ambition" },
-          { n: "12", name: "Knight of Pentacles", meaning: "Consistency, routine, duty" },
-          { n: "13", name: "Queen of Pentacles", meaning: "Practical care, abundance" },
-          { n: "14", name: "King of Pentacles", meaning: "Security, success, stewardship" },
-        ],
-      },
-    },
-  },
-};
-
+// --- Cards (imported from deck module) ---
 const ACTIVE_DECK_ID = "riderWaite";
+const ACTIVE_DECK = getDeck(ACTIVE_DECK_ID);
+const CARDS = ACTIVE_DECK.cards;
 
-// Wikimedia file URLs include a hashed path we don't want to hardcode.
-// Instead, we use the stable Commons "Special:FilePath" redirect.
-const commonsFilePath = (fileName) =>
-  `https://commons.wikimedia.org/wiki/Special:FilePath/${encodeURIComponent(fileName)}`;
+const POSITIONS = ["Past", "Present", "Future"]; 
 
-const buildDeckCards = (deck) => {
-  const majors = deck.majorArcana.map((c) => ({
-    id: `maj-${c.no}`,
-    arcana: "Major",
-    suit: null,
-    number: c.no,
-    name: c.name,
-    meaning: c.meaning,
-    img: commonsFilePath(c.file),
-  }));
+// --- Modal helpers ---
+function useEscape(handler) {
+  useEffect(() => {
+    const onKeyDown = (e) => {
+      if (e.key === "Escape") handler?.();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [handler]);
+}
 
-  const minors = [];
-  const minor = deck.minorArcana;
-
-  Object.entries(minor).forEach(([suitName, suitDef]) => {
-    suitDef.cards.forEach((c) => {
-      const file = `${suitDef.prefix}${c.n}.jpg`;
-      minors.push({
-        id: `min-${suitName.toLowerCase()}-${c.n}`,
-        arcana: "Minor",
-        suit: suitName,
-        number: c.n,
-        name: c.name,
-        meaning: c.meaning,
-        img: commonsFilePath(file),
-      });
-    });
+function ReadingModal({ open, onClose, title, sections, footer }) {
+  useEscape(() => {
+    if (open) onClose?.();
   });
 
-  return [...majors, ...minors];
-};
+  if (!open) return null;
 
-const ACTIVE_DECK = DECKS[ACTIVE_DECK_ID];
-const CARDS = buildDeckCards(ACTIVE_DECK);
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 md:p-8"
+      role="dialog"
+      aria-modal="true"
+      aria-label={title || "Reading"}
+    >
+      {/* backdrop */}
+      <button
+        className="absolute inset-0 bg-black/70 backdrop-blur-sm"
+        onClick={onClose}
+        aria-label="Close reading"
+      />
 
-const POSITIONS = ["Past", "Present", "Future"];
+      {/* panel */}
+      <div className="relative w-full max-w-2xl rounded-2xl border border-neutral-800 bg-neutral-950 text-neutral-100 shadow-2xl">
+        <div className="flex items-start justify-between gap-4 px-6 pt-6">
+          <div>
+            <div className="text-xs uppercase tracking-[0.3em] text-neutral-500">Your Reading</div>
+            {title ? <h2 className="mt-2 text-2xl md:text-3xl font-light tracking-tight">{title}</h2> : null}
+          </div>
+
+          <button
+            onClick={onClose}
+            className="rounded-full border border-neutral-800 bg-neutral-950/60 px-3 py-2 text-sm text-neutral-300 hover:text-neutral-100 hover:border-neutral-600 transition"
+            aria-label="Close"
+          >
+            ✕
+          </button>
+        </div>
+
+        <div className="px-6 pb-6 pt-5 max-h-[75vh] overflow-y-auto">
+          <div className="space-y-6">
+            {(sections || []).map((sec, i) => (
+              <div key={i} className="space-y-2">
+                {sec.heading ? (
+                  <h3 className="text-sm uppercase tracking-[0.25em] text-neutral-400">{sec.heading}</h3>
+                ) : null}
+                {(sec.paragraphs || []).map((p, j) => (
+                  <p key={j} className="text-base leading-relaxed text-neutral-200">
+                    {p}
+                  </p>
+                ))}
+              </div>
+            ))}
+          </div>
+
+          {footer ? (
+            <div className="mt-8 pt-5 border-t border-neutral-800">
+              <p className="text-sm text-neutral-400 leading-relaxed">{footer}</p>
+            </div>
+          ) : null}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 
 // Shimmer keyframes (Tailwind arbitrary animation uses this name)
 const animStyle = `@keyframes shimmer { 0% { transform: translateX(-60%); } 100% { transform: translateX(60%); } }
@@ -206,10 +130,7 @@ const animStyle = `@keyframes shimmer { 0% { transform: translateX(-60%); } 100%
 
 function TarotCard({ card, position, index = 0 }) {
   return (
-    <div
-      className="bg-neutral-950 p-4 flex flex-col h-full"
-      style={{ transitionDelay: `${index * 80}ms` }}
-    >
+    <div className="bg-neutral-950 p-4 flex flex-col h-full" style={{ transitionDelay: `${index * 80}ms` }}>
       <h2 className="text-sm uppercase tracking-widest text-neutral-500 mb-4">{position}</h2>
 
       {/* Image only renders after the whole spread has been preloaded */}
@@ -227,7 +148,12 @@ function TarotCard({ card, position, index = 0 }) {
 
       <div className="mt-6 pt-4 border-t border-neutral-800 flex flex-col flex-grow">
         <h3 className="text-xl font-light tracking-tight leading-snug mb-2 min-h-[2.75rem]">{card.name}</h3>
-        <p className="text-base text-neutral-300 leading-relaxed flex-grow">{card.meaning}</p>
+
+        {/* short meaning */}
+        <p className="text-base text-neutral-300 leading-relaxed">{card.meaning}</p>
+
+        {/* long description (optional) */}
+        {card.description && <p className="mt-3 text-sm text-neutral-400 leading-relaxed">{card.description}</p>}
       </div>
     </div>
   );
@@ -256,6 +182,9 @@ async function preloadSpreadCards(cards) {
 }
 
 export default function TarotApp() {
+  const [isReadingOpen, setIsReadingOpen] = useState(false);
+  const [reading, setReading] = useState({ title: "", sections: [], footer: "" });
+
   const [spread, setSpread] = useState([]);
   const [history, setHistory] = useState([]);
   const [isDrawing, setIsDrawing] = useState(false);
@@ -287,13 +216,20 @@ export default function TarotApp() {
     }
 
     setSpread(ready);
-    setHistory([{ timestamp, cards: ready }, ...history]);
+    setHistory([{ timestamp, deckId: ACTIVE_DECK_ID, cards: ready }, ...history]);
     setIsDrawing(false);
   };
   // Images are preloaded as a batch; no per-card load callback needed.
 
   return (
     <div className="min-h-screen bg-neutral-950 text-neutral-100 p-6">
+      <ReadingModal
+        open={isReadingOpen}
+        onClose={() => setIsReadingOpen(false)}
+        title={reading.title}
+        sections={reading.sections}
+        footer={reading.footer}
+      />
       <style>{animStyle}</style>
       <div className="max-w-6xl mx-auto">
         <h1 className="text-4xl md:text-5xl font-light tracking-tight mb-6">Past · Present · Future</h1>
@@ -329,8 +265,7 @@ export default function TarotApp() {
                       <div
                         className="absolute inset-0 opacity-40"
                         style={{
-                          background:
-                            "linear-gradient(90deg, transparent, rgba(255,255,255,0.06), transparent)",
+                          background: "linear-gradient(90deg, transparent, rgba(255,255,255,0.06), transparent)",
                           animation: "shimmer 1.2s linear infinite",
                         }}
                       />
@@ -361,17 +296,62 @@ export default function TarotApp() {
               <button
                 className="group w-full max-w-md rounded-2xl border border-neutral-800 bg-neutral-950/60 px-6 py-6 text-center transition hover:border-neutral-600 hover:bg-neutral-950 focus:outline-none"
                 onClick={() => {
-                  /* TODO: trigger LLM reading */
+                  if (!spread || spread.length !== 3) return;
+
+                  const [past, present, future] = spread;
+
+                  // Placeholder reading (until you wire the LLM).
+                  // This mirrors the intended length/tone and uses the current spread.
+                  const title = `${POSITIONS[0]} · ${POSITIONS[1]} · ${POSITIONS[2]}`;
+
+                  const sections = [
+                    {
+                      heading: `PAST — ${past.name}${past.arcana === "Major" ? ` (${past.number})` : ""}`,
+                      paragraphs: [
+                        "This card suggests a period where you needed to retreat—not to escape, but to see.",
+                        "It can point to necessary solitude: sifting through noise to reconnect with your inner voice.",
+                        "There’s a sense of shedding distractions so you could remember what actually guides you.",
+                      ],
+                    },
+                    {
+                      heading: `PRESENT — ${present.name}`,
+                      paragraphs: [
+                        "Now, focus narrows.",
+                        "You’re in a phase of disciplined iteration—working patiently on the foundations of something that matters.",
+                        "This isn’t about speed; it’s about refinement. Where does attention to detail feel like devotion, not drudgery?",
+                      ],
+                    },
+                    {
+                      heading: `FUTURE — ${future.name}${future.arcana === "Major" ? ` (${future.number})` : ""}`,
+                      paragraphs: [
+                        "A gentle shift awaits.",
+                        "After invested effort and inner realignment, this points to renewal—not sudden miracles, but a quieter assurance.",
+                        "It speaks to trusting your path again, even if the destination isn’t fully visible. Small, consistent acts of self-trust matter.",
+                      ],
+                    },
+                    {
+                      heading: "The Thread Connecting Them",
+                      paragraphs: [
+                        `Your story moves from clarity through reflection (${past.name}) → grounded skill-building (${present.name}) → renewed faith in your direction (${future.name}).`,
+                        "It implies an arc of integration: the wisdom gathered in stillness fuels your present focus—and that focus, paired with patience, gradually reconnects you to purpose.",
+                      ],
+                    },
+                    {
+                      heading: "One Question to Carry",
+                      paragraphs: ["What small act today would honor both your discipline and your hope?"],
+                    },
+                  ];
+
+                  const footer = "For reflection — not certainty. 🌱";
+
+                  setReading({ title, sections, footer });
+                  setIsReadingOpen(true);
                 }}
               >
                 <div className="flex flex-col items-center gap-3">
-                  <span className="text-2xl md:text-3xl font-light tracking-tight text-neutral-100">
-                    Get a reading
-                  </span>
+                  <span className="text-2xl md:text-3xl font-light tracking-tight text-neutral-100">Get a reading</span>
                   <span className="inline-block h-px w-12 bg-neutral-600 group-hover:w-20 transition-all duration-300" />
-                  <span className="text-xs tracking-wide text-neutral-400">
-                    For reflection — not certainty.
-                  </span>
+                  <span className="text-xs tracking-wide text-neutral-400">For reflection — not certainty.</span>
                 </div>
               </button>
             </div>
