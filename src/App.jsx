@@ -1,6 +1,7 @@
 // src/App.jsx
 import { useState, useEffect } from "react";
 import { getDeck } from "./data/decks";
+import { fetchReadingFromApi, fetchHealth } from "./api";
 
 // Tailwind doesn't ship this keyframe by default; we inline a tiny utility via an arbitrary animation.
 // (Used in the shimmer overlay.)
@@ -45,7 +46,7 @@ const ACTIVE_DECK_ID = "riderWaite";
 const ACTIVE_DECK = getDeck(ACTIVE_DECK_ID);
 const CARDS = ACTIVE_DECK.cards;
 
-const POSITIONS = ["Past", "Present", "Future"]; 
+const POSITIONS = ["Past", "Present", "Future"];
 
 // --- Modal helpers ---
 function useEscape(handler) {
@@ -122,7 +123,11 @@ function ReadingModal({ open, onClose, title, sections, footer }) {
               <span className="inline-block h-1.5 w-1.5 rounded-full bg-neutral-600" />
               Your Reading
             </div>
-            {title ? <h2 className="mt-3 text-2xl md:text-3xl font-light tracking-tight">{title}</h2> : null}
+            {title ? (
+              <h2 className="mt-3 text-2xl md:text-3xl font-light tracking-tight">
+                {title}
+              </h2>
+            ) : null}
           </div>
 
           <button
@@ -141,14 +146,20 @@ function ReadingModal({ open, onClose, title, sections, footer }) {
               <div className="rounded-2xl border border-neutral-800/70 bg-neutral-950/30 p-5 md:p-6">
                 <div className="space-y-6">
                   {ppfSections.map((sec, i) => (
-                    <div key={i} className={i === 0 ? "" : "pt-5 border-t border-neutral-800/60"}>
+                    <div
+                      key={i}
+                      className={i === 0 ? "" : "pt-5 border-t border-neutral-800/60"}
+                    >
                       {sec.heading ? (
                         <h3 className="text-sm uppercase tracking-[0.25em] text-neutral-300">
                           {sec.heading}
                         </h3>
                       ) : null}
                       {(sec.paragraphs || []).map((p, j) => (
-                        <p key={j} className="mt-3 text-base leading-relaxed text-neutral-200">
+                        <p
+                          key={j}
+                          className="mt-3 text-base leading-relaxed text-neutral-200"
+                        >
                           {p}
                         </p>
                       ))}
@@ -164,7 +175,9 @@ function ReadingModal({ open, onClose, title, sections, footer }) {
                 {sec.heading ? (
                   <div className="flex items-center gap-3">
                     <span className="h-px w-8 bg-neutral-800" />
-                    <h3 className="text-sm uppercase tracking-[0.25em] text-neutral-300">{sec.heading}</h3>
+                    <h3 className="text-sm uppercase tracking-[0.25em] text-neutral-300">
+                      {sec.heading}
+                    </h3>
                   </div>
                 ) : null}
                 {(sec.paragraphs || []).map((p, j) => (
@@ -189,15 +202,19 @@ function ReadingModal({ open, onClose, title, sections, footer }) {
   );
 }
 
-
 // Shimmer keyframes (Tailwind arbitrary animation uses this name)
 const animStyle = `@keyframes shimmer { 0% { transform: translateX(-60%); } 100% { transform: translateX(60%); } }
 @keyframes settle { 0% { transform: translateY(10px) scale(0.985); filter: blur(1px); opacity: 0.0; } 100% { transform: translateY(0px) scale(1); filter: blur(0px); opacity: 1.0; } }`;
 
 function TarotCard({ card, position, index = 0 }) {
   return (
-    <div className="bg-neutral-950 p-4 flex flex-col h-full" style={{ transitionDelay: `${index * 80}ms` }}>
-      <h2 className="text-sm uppercase tracking-widest text-neutral-500 mb-4">{position}</h2>
+    <div
+      className="bg-neutral-950 p-4 flex flex-col h-full"
+      style={{ transitionDelay: `${index * 80}ms` }}
+    >
+      <h2 className="text-sm uppercase tracking-widest text-neutral-500 mb-4">
+        {position}
+      </h2>
 
       {/* Image only renders after the whole spread has been preloaded */}
       <div className="relative rounded-xl overflow-hidden mb-3 group aspect-[3/5] bg-neutral-950">
@@ -213,13 +230,19 @@ function TarotCard({ card, position, index = 0 }) {
       </div>
 
       <div className="mt-6 pt-4 border-t border-neutral-800 flex flex-col flex-grow">
-        <h3 className="text-xl font-light tracking-tight leading-snug mb-2 min-h-[2.75rem]">{card.name}</h3>
+        <h3 className="text-xl font-light tracking-tight leading-snug mb-2 min-h-[2.75rem]">
+          {card.name}
+        </h3>
 
         {/* short meaning */}
         <p className="text-base text-neutral-300 leading-relaxed">{card.meaning}</p>
 
         {/* long description (optional) */}
-        {card.description && <p className="mt-3 text-sm text-neutral-400 leading-relaxed">{card.description}</p>}
+        {card.description && (
+          <p className="mt-3 text-sm text-neutral-400 leading-relaxed">
+            {card.description}
+          </p>
+        )}
       </div>
     </div>
   );
@@ -255,6 +278,10 @@ export default function TarotApp() {
   const [history, setHistory] = useState([]);
   const [isDrawing, setIsDrawing] = useState(false);
 
+  // Reading CTA loading + errors
+  const [isReadingLoading, setIsReadingLoading] = useState(false);
+  const [readingError, setReadingError] = useState("");
+
   useEffect(() => {
     const saved = localStorage.getItem("tarot-history");
     if (saved) setHistory(JSON.parse(saved));
@@ -285,8 +312,94 @@ export default function TarotApp() {
     setHistory([{ timestamp, deckId: ACTIVE_DECK_ID, cards: ready }, ...history]);
     setIsDrawing(false);
   };
-  // Images are preloaded as a batch; no per-card load callback needed.
 
+  const openReadingModal = (nextReading) => {
+    setReading(nextReading);
+    setIsReadingOpen(true);
+  };
+
+  const buildPromptPayload = () => {
+    if (!spread || spread.length !== 3) return null;
+    const [past, present, future] = spread;
+
+    // Send only what the model needs (avoid sending huge objects)
+    return {
+      spread: {
+        type: "Past–Present–Future",
+        cards: [
+          {
+            position: "PAST",
+            id: past.id,
+            name: past.name,
+            arcana: past.arcana,
+            number: past.arcana === "Major" ? past.number : undefined,
+            meaning: past.meaning,
+            description: past.description || "",
+          },
+          {
+            position: "PRESENT",
+            id: present.id,
+            name: present.name,
+            arcana: present.arcana,
+            number: present.arcana === "Major" ? present.number : undefined,
+            meaning: present.meaning,
+            description: present.description || "",
+          },
+          {
+            position: "FUTURE",
+            id: future.id,
+            name: future.name,
+            arcana: future.arcana,
+            number: future.arcana === "Major" ? future.number : undefined,
+            meaning: future.meaning,
+            description: future.description || "",
+          },
+        ],
+      },
+    };
+  };
+
+  const fallbackReading = () => {
+    const [past, present, future] = spread;
+
+    const title = `${POSITIONS[0]} · ${POSITIONS[1]} · ${POSITIONS[2]}`;
+
+    const sections = [
+      {
+        heading: `PAST — ${past.name}${past.arcana === "Major" ? ` (${past.number})` : ""}`,
+        paragraphs: [
+          "This card suggests a period where you needed to retreat—not to escape, but to see. It can point to necessary solitude: sifting through noise to reconnect with your inner voice. There’s a sense of shedding distractions so you could remember what actually guides you.",
+        ],
+      },
+      {
+        heading: `PRESENT — ${present.name}`,
+        paragraphs: [
+          "Now, focus narrows. You’re in a phase of disciplined iteration—working patiently on the foundations of something that matters. This isn’t about speed; it’s about refinement. The card invites you to ask: Where does attention to detail feel like devotion, not drudgery?",
+        ],
+      },
+      {
+        heading: `FUTURE — ${future.name}${future.arcana === "Major" ? ` (${future.number})` : ""}`,
+        paragraphs: [
+          "A gentle shift awaits. After invested effort and inner realignment, this points to renewal—not sudden miracles, but a quieter assurance. It speaks to trusting your path again, even if the destination isn’t fully visible. Small, consistent acts of self-trust matter.",
+        ],
+      },
+      {
+        heading: "The Thread Connecting Them",
+        paragraphs: [
+          `Your story moves from clarity through reflection (${past.name}) → grounded skill-building (${present.name}) → renewed faith in your direction (${future.name}).`,
+          "It implies an arc of integration: the wisdom gathered in stillness fuels your present focus—and that focus, paired with patience, gradually reconnects you to purpose.",
+        ],
+      },
+      {
+        heading: "One Question to Carry",
+        paragraphs: ["What small act today would honor both your discipline and your hope?"],
+      },
+    ];
+
+    return { title, sections, footer: "For reflection — not certainty. 🌱" };
+  };
+
+  // Images are preloaded as a batch; no per-card load callback needed.
   return (
     <div className="min-h-screen bg-neutral-950 text-neutral-100 p-6">
       <ReadingModal
@@ -296,9 +409,13 @@ export default function TarotApp() {
         sections={reading.sections}
         footer={reading.footer}
       />
+
       <style>{animStyle}</style>
+
       <div className="max-w-6xl mx-auto">
-        <h1 className="text-4xl md:text-5xl font-light tracking-tight mb-6">past · present · future</h1>
+        <h1 className="text-4xl md:text-5xl font-light tracking-tight mb-6">
+          past · present · future
+        </h1>
         <p className="sr-only">Tarot reading</p>
 
         {/* Co–Star-style section divider */}
@@ -310,7 +427,9 @@ export default function TarotApp() {
             disabled={isDrawing}
             className="group relative text-left disabled:opacity-60 disabled:cursor-not-allowed"
           >
-            <div className="text-xs uppercase tracking-[0.3em] text-neutral-500 mb-2">What’s unfolding</div>
+            <div className="text-xs uppercase tracking-[0.3em] text-neutral-500 mb-2">
+              What’s unfolding
+            </div>
             <div className="flex items-center gap-4">
               <span className="text-2xl md:text-3xl font-light tracking-tight text-neutral-200 group-hover:text-neutral-100 transition">
                 Reveal
@@ -318,8 +437,6 @@ export default function TarotApp() {
               <span className="inline-block h-px w-12 bg-neutral-700 group-hover:w-20 transition-all duration-300" />
             </div>
           </button>
-
-          
         </div>
 
         {!isDrawing && spread.length > 0 && (
@@ -333,61 +450,57 @@ export default function TarotApp() {
             {/* AI Reading CTA */}
             <div className="mb-12 md:mb-16 flex justify-center">
               <button
-                className="group w-full max-w-md rounded-2xl border border-neutral-800 bg-neutral-950/60 px-6 py-6 text-center transition hover:border-neutral-600 hover:bg-neutral-950 focus:outline-none"
-                onClick={() => {
+                className="group w-full max-w-md rounded-2xl border border-neutral-800 bg-neutral-950/60 px-6 py-6 text-center transition hover:border-neutral-600 hover:bg-neutral-950 focus:outline-none disabled:opacity-60 disabled:cursor-not-allowed"
+                disabled={isReadingLoading}
+                onClick={async () => {
                   if (!spread || spread.length !== 3) return;
 
-                  const [past, present, future] = spread;
+                  setReadingError("");
+                  setIsReadingLoading(true);
 
-                  // Placeholder reading (until you wire the LLM).
-                  // This mirrors the intended length/tone and uses the current spread.
-                  const title = `${POSITIONS[0]} · ${POSITIONS[1]} · ${POSITIONS[2]}`;
+                  try {
+                    // 1) Build payload for your API
+                    const payload = buildPromptPayload();
 
-                  const sections = [
-                    {
-                      heading: `PAST — ${past.name}${past.arcana === "Major" ? ` (${past.number})` : ""}`,
-                      paragraphs: [
-                        "This card suggests a period where you needed to retreat—not to escape, but to see. It can point to necessary solitude: sifting through noise to reconnect with your inner voice. There’s a sense of shedding distractions so you could remember what actually guides you.",
-                      ],
-                    },
-                    {
-                      heading: `PRESENT — ${present.name}`,
-                      paragraphs: [
-                        "Now, focus narrows. You’re in a phase of disciplined iteration—working patiently on the foundations of something that matters. This isn’t about speed; it’s about refinement. The card invites you to ask: Where does attention to detail feel like devotion, not drudgery?",
-                      ],
-                    },
-                    {
-                      heading: `FUTURE — ${future.name}${future.arcana === "Major" ? ` (${future.number})` : ""}`,
-                      paragraphs: [
-                        "A gentle shift awaits. After invested effort and inner realignment, this points to renewal—not sudden miracles, but a quieter assurance. It speaks to trusting your path again, even if the destination isn’t fully visible. Small, consistent acts of self-trust matter.",
-                      ],
-                    },
-                    {
-                      heading: "The Thread Connecting Them",
-                      paragraphs: [
-                        `Your story moves from clarity through reflection (${past.name}) → grounded skill-building (${present.name}) → renewed faith in your direction (${future.name}).`,
-                        "It implies an arc of integration: the wisdom gathered in stillness fuels your present focus—and that focus, paired with patience, gradually reconnects you to purpose.",
-                      ],
-                    },
-                    {
-                      heading: "One Question to Carry",
-                      paragraphs: ["What small act today would honor both your discipline and your hope?"],
-                    },
-                  ];
+                    // 2) Call your LLM-backed API (Cloudflare worker / OpenRouter proxy)
+                    // fetchReadingFromApi should return: { title, sections, footer }
+                    // If your API returns raw text, you can wrap it into sections.
+                    const apiReading = await fetchReadingFromApi(payload);
 
-                  const footer = "For reflection — not certainty. 🌱";
-
-                  setReading({ title, sections, footer });
-                  setIsReadingOpen(true);
+                    if (apiReading?.title && Array.isArray(apiReading?.sections)) {
+                      openReadingModal(apiReading);
+                    } else {
+                      // If the API returns something unexpected, fall back
+                      openReadingModal(fallbackReading());
+                    }
+                  } catch (err) {
+                    // Keep UI calm: fall back, but also show a subtle error
+                    setReadingError("Couldn’t reach the reading service. Showing a local reflection instead.");
+                    openReadingModal(fallbackReading());
+                  } finally {
+                    setIsReadingLoading(false);
+                  }
                 }}
               >
                 <div className="flex flex-col items-center gap-3">
-                  <span className="text-2xl md:text-3xl font-light tracking-tight text-neutral-100">Get a reading</span>
+                  <span className="text-2xl md:text-3xl font-light tracking-tight text-neutral-100">
+                    {isReadingLoading ? "Reading…" : "Get a reading"}
+                  </span>
                   <span className="inline-block h-px w-12 bg-neutral-600 group-hover:w-20 transition-all duration-300" />
-                  <span className="text-xs tracking-wide text-neutral-400">For reflection — not certainty.</span>
+                  <span className="text-xs tracking-wide text-neutral-400">
+                    For reflection — not certainty.
+                  </span>
                 </div>
               </button>
             </div>
+
+            {readingError ? (
+              <div className="-mt-10 mb-10 flex justify-center">
+                <div className="max-w-md text-center text-xs tracking-wide text-neutral-500">
+                  {readingError}
+                </div>
+              </div>
+            ) : null}
           </>
         )}
 
@@ -396,7 +509,9 @@ export default function TarotApp() {
             {/* Co–Star-style section divider */}
             <div className="h-px w-full bg-neutral-800/50 mb-8" />
 
-            <h2 className="text-xs uppercase tracking-[0.3em] text-neutral-500 mb-6">History</h2>
+            <h2 className="text-xs uppercase tracking-[0.3em] text-neutral-500 mb-6">
+              History
+            </h2>
             <div className="space-y-0">
               {history.slice(0, 5).map((entry, idx) => (
                 <div key={idx} className="py-4 text-sm">
