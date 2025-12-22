@@ -283,6 +283,15 @@ export default function TarotApp() {
   const [readingError, setReadingError] = useState("");
 
   useEffect(() => {
+    // Health check on page load
+    fetchHealth()
+      .then((res) => {
+        console.log("[health] API reachable:", res);
+      })
+      .catch((err) => {
+        console.warn("[health] API not reachable:", err);
+      });
+
     const saved = localStorage.getItem("tarot-history");
     if (saved) setHistory(JSON.parse(saved));
   }, []);
