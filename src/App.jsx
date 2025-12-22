@@ -65,6 +65,10 @@ function ReadingModal({ open, onClose, title, sections, footer }) {
 
   if (!open) return null;
 
+  const allSections = Array.isArray(sections) ? sections : [];
+  const ppfSections = allSections.slice(0, 3);
+  const restSections = allSections.slice(3);
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4 md:p-8"
@@ -72,36 +76,96 @@ function ReadingModal({ open, onClose, title, sections, footer }) {
       aria-modal="true"
       aria-label={title || "Reading"}
     >
-      {/* backdrop */}
+      {/* backdrop (vignette + blur) */}
       <button
         className="absolute inset-0 bg-black/70 backdrop-blur-sm"
         onClick={onClose}
         aria-label="Close reading"
       />
+      <div
+        className="pointer-events-none absolute inset-0"
+        style={{
+          background:
+            "radial-gradient(60% 45% at 50% 40%, rgba(255,255,255,0.06), transparent 70%), radial-gradient(110% 90% at 50% 110%, rgba(255,255,255,0.04), transparent 60%)",
+        }}
+      />
 
       {/* panel */}
-      <div className="relative w-full max-w-2xl rounded-2xl border border-neutral-800 bg-neutral-950 text-neutral-100 shadow-2xl">
-        <div className="flex items-start justify-between gap-4 px-6 pt-6">
+      <div
+        className="relative w-full max-w-2xl rounded-2xl border border-neutral-800 bg-neutral-950 text-neutral-100 shadow-[0_30px_120px_rgba(0,0,0,0.75)] overflow-hidden animate-[settle_180ms_ease-out]"
+        style={{
+          boxShadow:
+            "0 30px 120px rgba(0,0,0,0.75), 0 0 0 1px rgba(255,255,255,0.04) inset",
+        }}
+      >
+        {/* subtle gradient ring */}
+        <div
+          className="pointer-events-none absolute inset-0"
+          style={{
+            background:
+              "linear-gradient(135deg, rgba(255,255,255,0.10), rgba(255,255,255,0.02) 35%, rgba(255,255,255,0.08) 70%, rgba(255,255,255,0.02))",
+            opacity: 0.08,
+          }}
+        />
+        {/* soft header wash */}
+        <div
+          className="pointer-events-none absolute inset-x-0 top-0 h-28"
+          style={{
+            background:
+              "linear-gradient(to bottom, rgba(255,255,255,0.05), rgba(255,255,255,0.0))",
+          }}
+        />
+
+        <div className="relative flex items-start justify-between gap-4 px-6 pt-6">
           <div>
-            <div className="text-xs uppercase tracking-[0.3em] text-neutral-500">Your Reading</div>
-            {title ? <h2 className="mt-2 text-2xl md:text-3xl font-light tracking-tight">{title}</h2> : null}
+            <div className="inline-flex items-center gap-2 rounded-full border border-neutral-800 bg-neutral-950/50 px-3 py-1 text-xs uppercase tracking-[0.3em] text-neutral-400">
+              <span className="inline-block h-1.5 w-1.5 rounded-full bg-neutral-600" />
+              Your Reading
+            </div>
+            {title ? <h2 className="mt-3 text-2xl md:text-3xl font-light tracking-tight">{title}</h2> : null}
           </div>
 
           <button
             onClick={onClose}
-            className="rounded-full border border-neutral-800 bg-neutral-950/60 px-3 py-2 text-sm text-neutral-300 hover:text-neutral-100 hover:border-neutral-600 transition"
+            className="rounded-full border border-neutral-800 bg-neutral-950/60 px-3 py-2 text-sm text-neutral-300 hover:text-neutral-100 hover:border-neutral-600 hover:bg-neutral-900/50 transition"
             aria-label="Close"
           >
             ✕
           </button>
         </div>
 
-        <div className="px-6 pb-6 pt-5 max-h-[75vh] overflow-y-auto">
-          <div className="space-y-6">
-            {(sections || []).map((sec, i) => (
-              <div key={i} className="space-y-2">
+        <div className="relative px-6 pb-6 pt-5 max-h-[75vh] overflow-y-auto">
+          <div className="space-y-7">
+            {/* past / present / future as one visual section */}
+            {ppfSections.length > 0 ? (
+              <div className="rounded-2xl border border-neutral-800/70 bg-neutral-950/30 p-5 md:p-6">
+                <div className="space-y-6">
+                  {ppfSections.map((sec, i) => (
+                    <div key={i} className={i === 0 ? "" : "pt-5 border-t border-neutral-800/60"}>
+                      {sec.heading ? (
+                        <h3 className="text-sm uppercase tracking-[0.25em] text-neutral-300">
+                          {sec.heading}
+                        </h3>
+                      ) : null}
+                      {(sec.paragraphs || []).map((p, j) => (
+                        <p key={j} className="mt-3 text-base leading-relaxed text-neutral-200">
+                          {p}
+                        </p>
+                      ))}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+
+            {/* everything else */}
+            {restSections.map((sec, i) => (
+              <div key={`rest-${i}`} className="space-y-2.5">
                 {sec.heading ? (
-                  <h3 className="text-sm uppercase tracking-[0.25em] text-neutral-400">{sec.heading}</h3>
+                  <div className="flex items-center gap-3">
+                    <span className="h-px w-8 bg-neutral-800" />
+                    <h3 className="text-sm uppercase tracking-[0.25em] text-neutral-300">{sec.heading}</h3>
+                  </div>
                 ) : null}
                 {(sec.paragraphs || []).map((p, j) => (
                   <p key={j} className="text-base leading-relaxed text-neutral-200">
@@ -114,7 +178,9 @@ function ReadingModal({ open, onClose, title, sections, footer }) {
 
           {footer ? (
             <div className="mt-8 pt-5 border-t border-neutral-800">
-              <p className="text-sm text-neutral-400 leading-relaxed">{footer}</p>
+              <p className="text-sm text-neutral-400 leading-relaxed text-center tracking-wide">
+                {footer}
+              </p>
             </div>
           ) : null}
         </div>
@@ -126,7 +192,7 @@ function ReadingModal({ open, onClose, title, sections, footer }) {
 
 // Shimmer keyframes (Tailwind arbitrary animation uses this name)
 const animStyle = `@keyframes shimmer { 0% { transform: translateX(-60%); } 100% { transform: translateX(60%); } }
-@keyframes settle { 0% { transform: translateY(6px) scale(0.99); filter: blur(1px); opacity: 0.0; } 100% { transform: translateY(0px) scale(1); filter: blur(0px); opacity: 1.0; } }`;
+@keyframes settle { 0% { transform: translateY(10px) scale(0.985); filter: blur(1px); opacity: 0.0; } 100% { transform: translateY(0px) scale(1); filter: blur(0px); opacity: 1.0; } }`;
 
 function TarotCard({ card, position, index = 0 }) {
   return (
@@ -232,13 +298,13 @@ export default function TarotApp() {
       />
       <style>{animStyle}</style>
       <div className="max-w-6xl mx-auto">
-        <h1 className="text-4xl md:text-5xl font-light tracking-tight mb-6">Past · Present · Future</h1>
+        <h1 className="text-4xl md:text-5xl font-light tracking-tight mb-6">past · present · future</h1>
         <p className="sr-only">Tarot reading</p>
 
         {/* Co–Star-style section divider */}
         <div className="h-px w-full bg-neutral-800/50 mb-8" />
 
-        <div className="mb-6 md:mb-8">
+        <div className="mb-2 md:mb-4">
           <button
             onClick={drawSpread}
             disabled={isDrawing}
@@ -253,34 +319,7 @@ export default function TarotApp() {
             </div>
           </button>
 
-          {isDrawing && (
-            <div className="mt-8">
-              <div className="text-xs uppercase tracking-[0.3em] text-neutral-500">Drawing</div>
-              <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-10">
-                {POSITIONS.map((label) => (
-                  <div key={label} className="bg-neutral-950 p-4 flex flex-col h-full">
-                    <div className="text-sm uppercase tracking-widest text-neutral-600 mb-4">{label}</div>
-
-                    <div className="relative rounded-xl overflow-hidden mb-3 aspect-[3/5] bg-neutral-900/40">
-                      <div
-                        className="absolute inset-0 opacity-40"
-                        style={{
-                          background: "linear-gradient(90deg, transparent, rgba(255,255,255,0.06), transparent)",
-                          animation: "shimmer 1.2s linear infinite",
-                        }}
-                      />
-                    </div>
-
-                    <div className="mt-6 pt-4 border-t border-neutral-900 flex flex-col flex-grow">
-                      <div className="h-6 w-2/3 bg-neutral-900/40 rounded-sm" />
-                      <div className="mt-3 h-4 w-4/5 bg-neutral-900/30 rounded-sm" />
-                      <div className="mt-2 h-4 w-3/5 bg-neutral-900/30 rounded-sm" />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
+          
         </div>
 
         {!isDrawing && spread.length > 0 && (
@@ -308,25 +347,19 @@ export default function TarotApp() {
                     {
                       heading: `PAST — ${past.name}${past.arcana === "Major" ? ` (${past.number})` : ""}`,
                       paragraphs: [
-                        "This card suggests a period where you needed to retreat—not to escape, but to see.",
-                        "It can point to necessary solitude: sifting through noise to reconnect with your inner voice.",
-                        "There’s a sense of shedding distractions so you could remember what actually guides you.",
+                        "This card suggests a period where you needed to retreat—not to escape, but to see. It can point to necessary solitude: sifting through noise to reconnect with your inner voice. There’s a sense of shedding distractions so you could remember what actually guides you.",
                       ],
                     },
                     {
                       heading: `PRESENT — ${present.name}`,
                       paragraphs: [
-                        "Now, focus narrows.",
-                        "You’re in a phase of disciplined iteration—working patiently on the foundations of something that matters.",
-                        "This isn’t about speed; it’s about refinement. Where does attention to detail feel like devotion, not drudgery?",
+                        "Now, focus narrows. You’re in a phase of disciplined iteration—working patiently on the foundations of something that matters. This isn’t about speed; it’s about refinement. The card invites you to ask: Where does attention to detail feel like devotion, not drudgery?",
                       ],
                     },
                     {
                       heading: `FUTURE — ${future.name}${future.arcana === "Major" ? ` (${future.number})` : ""}`,
                       paragraphs: [
-                        "A gentle shift awaits.",
-                        "After invested effort and inner realignment, this points to renewal—not sudden miracles, but a quieter assurance.",
-                        "It speaks to trusting your path again, even if the destination isn’t fully visible. Small, consistent acts of self-trust matter.",
+                        "A gentle shift awaits. After invested effort and inner realignment, this points to renewal—not sudden miracles, but a quieter assurance. It speaks to trusting your path again, even if the destination isn’t fully visible. Small, consistent acts of self-trust matter.",
                       ],
                     },
                     {

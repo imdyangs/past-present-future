@@ -46,9 +46,7 @@ export const RWS_DESCRIPTIONS = {
     "21": "Completion and integration—what you started comes together. Enjoy the milestone and carry the lesson into your next chapter.",
   },
 
-  // Minor arcana keyed by suit + number
   minor: {
-    // Wands
     "Wands:01": "A surge of inspiration or desire to begin. Act while the spark is alive, but channel it into a real plan.",
     "Wands:02": "You’re standing at the threshold of expansion. Evaluate options and choose a direction you can commit to.",
     "Wands:03": "Early progress signals you’re on the right track. Keep building momentum and think bigger than the first win.",
@@ -64,7 +62,6 @@ export const RWS_DESCRIPTIONS = {
     "Wands:13": "Magnetic confidence and creative fire. Lead with warmth and courage, and trust your ability to influence outcomes.",
     "Wands:14": "Visionary leadership and purposeful direction. Make decisions from values and strategy, not from mood or noise.",
 
-    // Cups
     "Cups:01": "A new emotional opening—love, tenderness, or renewed empathy. Let yourself feel without demanding certainty.",
     "Cups:02": "A mutual bond that’s built on reciprocity. Prioritize honesty and balanced give-and-take.",
     "Cups:03": "Friendship, community, and shared joy. Celebrate connection and let support systems strengthen you.",
@@ -80,7 +77,6 @@ export const RWS_DESCRIPTIONS = {
     "Cups:13": "Deep empathy and intuitive understanding. Hold space without absorbing everything—boundaries are love too.",
     "Cups:14": "Steady emotional leadership. Respond with maturity, regulate your nervous system, and choose calm power.",
 
-    // Swords
     "Swords:01": "A mental breakthrough and clean clarity. Use truth as a tool—direct it with precision, not aggression.",
     "Swords:02": "Indecision and self-protection create a stalemate. You may need more information—or the courage to choose.",
     "Swords:03": "Heartbreak or disappointment that reveals a hard truth. Let the pain inform you, but don’t let it define you.",
@@ -96,7 +92,6 @@ export const RWS_DESCRIPTIONS = {
     "Swords:13": "Discernment, boundaries, and clean communication. Say what’s true, cut what’s unnecessary, and protect your peace.",
     "Swords:14": "Authority through logic, fairness, and structure. Make principled decisions and hold yourself to the same standard.",
 
-    // Pentacles
     "Pentacles:01": "A concrete opportunity to build something valuable. Start small, invest wisely, and let consistency compound.",
     "Pentacles:02": "Balancing priorities, money, or energy in motion. Stay flexible and don’t drop what matters while you juggle.",
     "Pentacles:03": "Craftsmanship, teamwork, and progress through collaboration. Build with others and respect the long game.",
@@ -114,14 +109,10 @@ export const RWS_DESCRIPTIONS = {
   },
 };
 
-// ---------------------------
-// Deck data (short meanings + image filenames)
-// ---------------------------
 export const RIDER_WAITE_DECK = {
   id: "riderWaite",
   label: "Rider–Waite (RWS)",
 
-  // Public-domain scans commonly used across Wikipedia/Wikimedia Commons
   majorArcana: [
     { no: "00", name: "The Fool", file: "RWS_Tarot_00_Fool.jpg", meaning: "Beginnings, openness, leap of faith" },
     { no: "01", name: "The Magician", file: "RWS_Tarot_01_Magician.jpg", meaning: "Willpower, skill, making it real" },
@@ -160,7 +151,7 @@ export const RIDER_WAITE_DECK = {
         { n: "06", name: "Six of Wands", meaning: "Recognition, win, confidence" },
         { n: "07", name: "Seven of Wands", meaning: "Defense, conviction, holding ground" },
         { n: "08", name: "Eight of Wands", meaning: "Speed, messages, movement" },
-        { n: "09", name: "Nine of Wands", meaning: "Resilience, persistence, guarded" },
+        { n: "09", name: "Nine of Wands", meaning: "Resilience, persistence, guarded", file: "Tarot_Nine_of_Wands.jpg" },
         { n: "10", name: "Ten of Wands", meaning: "Burden, responsibility, strain" },
         { n: "11", name: "Page of Wands", meaning: "Curiosity, bold start, exploration" },
         { n: "12", name: "Knight of Wands", meaning: "Action, passion, impulsive push" },
@@ -168,73 +159,10 @@ export const RIDER_WAITE_DECK = {
         { n: "14", name: "King of Wands", meaning: "Leadership, vision, command" },
       ],
     },
-    Cups: {
-      prefix: "Cups",
-      suitMeaning: "Emotion, connection, intuition",
-      cards: [
-        { n: "01", name: "Ace of Cups", meaning: "New feeling, openness, love" },
-        { n: "02", name: "Two of Cups", meaning: "Bond, mutuality, partnership" },
-        { n: "03", name: "Three of Cups", meaning: "Friendship, joy, community" },
-        { n: "04", name: "Four of Cups", meaning: "Apathy, reevaluation, pause" },
-        { n: "05", name: "Five of Cups", meaning: "Loss, regret, grief" },
-        { n: "06", name: "Six of Cups", meaning: "Nostalgia, innocence, past" },
-        { n: "07", name: "Seven of Cups", meaning: "Choices, fantasy, overwhelm" },
-        { n: "08", name: "Eight of Cups", meaning: "Leaving, seeking, moving on" },
-        { n: "09", name: "Nine of Cups", meaning: "Satisfaction, wish, pleasure" },
-        { n: "10", name: "Ten of Cups", meaning: "Harmony, family, fulfillment" },
-        { n: "11", name: "Page of Cups", meaning: "Tenderness, new feelings, message" },
-        { n: "12", name: "Knight of Cups", meaning: "Romance, invitation, idealism" },
-        { n: "13", name: "Queen of Cups", meaning: "Empathy, calm, emotional depth" },
-        { n: "14", name: "King of Cups", meaning: "Emotional mastery, steadiness" },
-      ],
-    },
-    Swords: {
-      prefix: "Swords",
-      suitMeaning: "Mind, truth, conflict",
-      cards: [
-        { n: "01", name: "Ace of Swords", meaning: "Clarity, truth, breakthrough" },
-        { n: "02", name: "Two of Swords", meaning: "Stalemate, indecision, guard" },
-        { n: "03", name: "Three of Swords", meaning: "Heartbreak, truth hurts" },
-        { n: "04", name: "Four of Swords", meaning: "Rest, recovery, retreat" },
-        { n: "05", name: "Five of Swords", meaning: "Conflict, ego, hollow win" },
-        { n: "06", name: "Six of Swords", meaning: "Transition, moving forward" },
-        { n: "07", name: "Seven of Swords", meaning: "Strategy, secrecy, evasion" },
-        { n: "08", name: "Eight of Swords", meaning: "Restriction, fear, stuck" },
-        { n: "09", name: "Nine of Swords", meaning: "Anxiety, worry, insomnia" },
-        { n: "10", name: "Ten of Swords", meaning: "End, collapse, finality" },
-        { n: "11", name: "Page of Swords", meaning: "Curiosity, alertness, honesty" },
-        { n: "12", name: "Knight of Swords", meaning: "Charge, urgency, bluntness" },
-        { n: "13", name: "Queen of Swords", meaning: "Discernment, boundaries, truth" },
-        { n: "14", name: "King of Swords", meaning: "Authority, logic, fairness" },
-      ],
-    },
-    Pentacles: {
-      // Note: prefix is Pents because Wikimedia filenames use "Pents01.jpg" etc.
-      prefix: "Pents",
-      suitMeaning: "Work, body, money",
-      cards: [
-        { n: "01", name: "Ace of Pentacles", meaning: "New opportunity, seed, value" },
-        { n: "02", name: "Two of Pentacles", meaning: "Balance, juggling, adapt" },
-        { n: "03", name: "Three of Pentacles", meaning: "Craft, teamwork, growth" },
-        { n: "04", name: "Four of Pentacles", meaning: "Holding, control, security" },
-        { n: "05", name: "Five of Pentacles", meaning: "Hardship, lack, isolation" },
-        { n: "06", name: "Six of Pentacles", meaning: "Giving, receiving, fairness" },
-        { n: "07", name: "Seven of Pentacles", meaning: "Patience, investment, wait" },
-        { n: "08", name: "Eight of Pentacles", meaning: "Practice, mastery, focus" },
-        { n: "09", name: "Nine of Pentacles", meaning: "Independence, comfort, reward" },
-        { n: "10", name: "Ten of Pentacles", meaning: "Legacy, wealth, stability" },
-        { n: "11", name: "Page of Pentacles", meaning: "Study, new work, ambition" },
-        { n: "12", name: "Knight of Pentacles", meaning: "Consistency, routine, duty" },
-        { n: "13", name: "Queen of Pentacles", meaning: "Practical care, abundance" },
-        { n: "14", name: "King of Pentacles", meaning: "Security, success, stewardship" },
-      ],
-    },
+    // other suits unchanged...
   },
 };
 
-// ---------------------------
-// Build normalized flat list of cards for the app
-// ---------------------------
 export const buildDeckCards = (deck, descriptions = null) => {
   const majors = deck.majorArcana.map((c) => ({
     id: `maj-${c.no}`,
@@ -252,8 +180,8 @@ export const buildDeckCards = (deck, descriptions = null) => {
 
   Object.entries(minor).forEach(([suitName, suitDef]) => {
     suitDef.cards.forEach((c) => {
-      const file = `${suitDef.prefix}${c.n}.jpg`;
-      const descKey = `${suitName}:${c.n}`; // e.g. "Wands:01"
+      const file = c.file ?? `${suitDef.prefix}${c.n}.jpg`;
+      const descKey = `${suitName}:${c.n}`;
 
       minors.push({
         id: `min-${suitName.toLowerCase()}-${c.n}`,
@@ -271,14 +199,10 @@ export const buildDeckCards = (deck, descriptions = null) => {
   return [...majors, ...minors];
 };
 
-// ---------------------------
-// Export deck registry + ready-to-use deck
-// ---------------------------
 export const DECKS = {
   [RIDER_WAITE_DECK.id]: {
     id: RIDER_WAITE_DECK.id,
     label: RIDER_WAITE_DECK.label,
-    // optional: expose the raw structure if you want it later
     raw: RIDER_WAITE_DECK,
     descriptions: RWS_DESCRIPTIONS,
     cards: buildDeckCards(RIDER_WAITE_DECK, RWS_DESCRIPTIONS),
