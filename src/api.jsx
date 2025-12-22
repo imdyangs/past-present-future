@@ -33,7 +33,40 @@ export async function fetchHealth() {
 }
 
 /**
- * Tarot reading
+ * Tarot reading: Example Payload
+ * {
+    "spread": {
+      "type": "Past–Present–Future",
+      "cards": [
+        {
+          "position": "PAST",
+          "id": "maj-09",
+          "name": "The Hermit",
+          "arcana": "Major",
+          "number": "09",
+          "meaning": "Solitude, insight, guidance",
+          "description": "Step back to see clearly and regain your inner compass. Solitude, reflection, or mentorship helps you find the signal in the noise."
+        },
+        {
+          "position": "PRESENT",
+          "id": "min-pentacles-08",
+          "name": "Eight of Pentacles",
+          "arcana": "Minor",
+          "meaning": "Practice, dedication, mastery through repetition.",
+          "description": "Practice, repetition, and mastery. Get obsessed with fundamentals and let skill become your advantage."
+        },
+        {
+          "position": "FUTURE",
+          "id": "maj-17",
+          "name": "The Star",
+          "arcana": "Major",
+          "number": "17",
+          "meaning": "Hope, renewal, guidance",
+          "description": "Renewal, guidance, and steady hope after difficulty. Keep faith in your path and take practical steps toward healing."
+        }
+      ]
+    }
+  }
  */
 export async function fetchReadingFromApi(spread) {
   const base = getApiBase();
