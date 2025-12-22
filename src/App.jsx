@@ -2,6 +2,7 @@
 import { useState, useEffect } from "react";
 import { getDeck } from "./data/decks";
 import { fetchReadingFromApi, fetchHealth } from "./api";
+import { debugParseReadingMarkdown } from "./util";
 
 // Tailwind doesn't ship this keyframe by default; we inline a tiny utility via an arbitrary animation.
 // (Used in the shimmer overlay.)
@@ -57,6 +58,41 @@ function useEscape(handler) {
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [handler]);
+}
+
+// --- Tiny inline-markdown renderer (bold/italic) ---
+function renderInlineMarkdown(text) {
+  const s = String(text || "");
+  const out = [];
+
+  // Tokenize on **bold** and *italic* (simple, non-nested)
+  const re = /(\*\*[^*]+\*\*)|(\*[^*]+\*)/g;
+  let last = 0;
+  let m;
+
+  while ((m = re.exec(s)) !== null) {
+    if (m.index > last) out.push(s.slice(last, m.index));
+    const token = m[0];
+
+    if (token.startsWith("**")) {
+      out.push(
+        <strong key={`b-${m.index}`} className="font-semibold text-neutral-100">
+          {token.slice(2, -2)}
+        </strong>
+      );
+    } else {
+      out.push(
+        <em key={`i-${m.index}`} className="italic text-neutral-200">
+          {token.slice(1, -1)}
+        </em>
+      );
+    }
+
+    last = m.index + token.length;
+  }
+
+  if (last < s.length) out.push(s.slice(last));
+  return out;
 }
 
 function ReadingModal({ open, onClose, title, sections, footer }) {
@@ -160,7 +196,7 @@ function ReadingModal({ open, onClose, title, sections, footer }) {
                           key={j}
                           className="mt-3 text-base leading-relaxed text-neutral-200"
                         >
-                          {p}
+                          {renderInlineMarkdown(p)}
                         </p>
                       ))}
                     </div>
@@ -182,7 +218,7 @@ function ReadingModal({ open, onClose, title, sections, footer }) {
                 ) : null}
                 {(sec.paragraphs || []).map((p, j) => (
                   <p key={j} className="text-base leading-relaxed text-neutral-200">
-                    {p}
+                    {renderInlineMarkdown(p)}
                   </p>
                 ))}
               </div>
@@ -278,6 +314,13 @@ export default function TarotApp() {
   const [history, setHistory] = useState([]);
   const [isDrawing, setIsDrawing] = useState(false);
 
+  // Cache key for the currently revealed spread
+  const [revealCacheKey, setRevealCacheKey] = useState(null);
+
+  // Cache the most recent API response for the currently revealed spread
+  const [readingCacheKey, setReadingCacheKey] = useState(null);
+  const [cachedApiReading, setCachedApiReading] = useState(null);
+
   // Reading CTA loading + errors
   const [isReadingLoading, setIsReadingLoading] = useState(false);
   const [readingError, setReadingError] = useState("");
@@ -301,6 +344,13 @@ export default function TarotApp() {
   }, [history]);
 
   const drawSpread = async () => {
+    // Generate a new cache key for each Reveal click
+    const newCacheKey = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    setRevealCacheKey(newCacheKey);
+
+    // New reveal => invalidate cached reading
+    setReadingCacheKey(null);
+    setCachedApiReading(null);
     const start = performance.now();
     setIsDrawing(true);
     setSpread([]); // don't render any images until all 3 are ready
@@ -318,6 +368,9 @@ export default function TarotApp() {
     }
 
     setSpread(ready);
+
+    // Associate this spread with the current reveal cache key
+    console.log("[reveal] cache key:", newCacheKey);
     setHistory([{ timestamp, deckId: ACTIVE_DECK_ID, cards: ready }, ...history]);
     setIsDrawing(false);
   };
@@ -331,44 +384,44 @@ export default function TarotApp() {
     if (!spread || spread.length !== 3) return null;
     const [past, present, future] = spread;
 
-    // Send only what the model needs (avoid sending huge objects)
+    // Match the API signature: fetchReadingFromApi(spread)
+    // (The API will wrap as { spread: <this> })
     return {
-      spread: {
-        type: "Past–Present–Future",
-        cards: [
-          {
-            position: "PAST",
-            id: past.id,
-            name: past.name,
-            arcana: past.arcana,
-            number: past.arcana === "Major" ? past.number : undefined,
-            meaning: past.meaning,
-            description: past.description || "",
-          },
-          {
-            position: "PRESENT",
-            id: present.id,
-            name: present.name,
-            arcana: present.arcana,
-            number: present.arcana === "Major" ? present.number : undefined,
-            meaning: present.meaning,
-            description: present.description || "",
-          },
-          {
-            position: "FUTURE",
-            id: future.id,
-            name: future.name,
-            arcana: future.arcana,
-            number: future.arcana === "Major" ? future.number : undefined,
-            meaning: future.meaning,
-            description: future.description || "",
-          },
-        ],
-      },
+      type: "Past–Present–Future",
+      cards: [
+        {
+          position: "PAST",
+          id: past.id,
+          name: past.name,
+          arcana: past.arcana,
+          number: past.arcana === "Major" ? past.number : undefined,
+          meaning: past.meaning,
+          description: past.description || "",
+        },
+        {
+          position: "PRESENT",
+          id: present.id,
+          name: present.name,
+          arcana: present.arcana,
+          number: present.arcana === "Major" ? present.number : undefined,
+          meaning: present.meaning,
+          description: present.description || "",
+        },
+        {
+          position: "FUTURE",
+          id: future.id,
+          name: future.name,
+          arcana: future.arcana,
+          number: future.arcana === "Major" ? future.number : undefined,
+          meaning: future.meaning,
+          description: future.description || "",
+        },
+      ],
     };
   };
 
-  const fallbackReading = () => {
+
+const fallbackReading = () => {
     const [past, present, future] = spread;
 
     const title = `${POSITIONS[0]} · ${POSITIONS[1]} · ${POSITIONS[2]}`;
@@ -464,6 +517,35 @@ export default function TarotApp() {
                 onClick={async () => {
                   if (!spread || spread.length !== 3) return;
 
+                  // If the reveal cache key hasn't changed, reuse the cached API result
+                  // (i.e., same revealed cards => same reading)
+                  const key = revealCacheKey || spread.map((c) => c?.id).join("|");
+                  if (cachedApiReading && readingCacheKey === key) {
+                    console.log("[reading] cache hit:", key);
+                    console.log("[reading] raw api response:", cachedApiReading);
+                    debugParseReadingMarkdown(
+                      cachedApiReading?.text ??
+                        cachedApiReading?.raw?.choices?.[0]?.message?.content ??
+                        ""
+                    );
+                    const cachedMd =
+                      cachedApiReading?.text ??
+                      cachedApiReading?.raw?.choices?.[0]?.message?.content ??
+                      "";
+
+                    const parsed = debugParseReadingMarkdown(cachedMd);
+                    if (parsed?.sections?.length) {
+                      openReadingModal({
+                        title: POSITIONS.join(" · "),
+                        sections: parsed.sections,
+                        footer: parsed.footer || "For reflection — not certainty. 🌱",
+                      });
+                    } else {
+                      openReadingModal(fallbackReading());
+                    }
+                    return;
+                  }
+
                   setReadingError("");
                   setIsReadingLoading(true);
 
@@ -476,10 +558,27 @@ export default function TarotApp() {
                     // If your API returns raw text, you can wrap it into sections.
                     const apiReading = await fetchReadingFromApi(payload);
 
-                    if (apiReading?.title && Array.isArray(apiReading?.sections)) {
-                      openReadingModal(apiReading);
+                    // Save for reuse if the cards (reveal) haven't changed
+                    setReadingCacheKey(key);
+                    setCachedApiReading(apiReading);
+
+                    // Debug: your worker returns { model, text, raw }
+                    console.log("[reading] raw api response:", apiReading);
+
+                    const md =
+                      apiReading?.text ??
+                      apiReading?.raw?.choices?.[0]?.message?.content ??
+                      "";
+
+                    const parsed = debugParseReadingMarkdown(md);
+
+                    if (parsed?.sections?.length) {
+                      openReadingModal({
+                        title: POSITIONS.join(" · "),
+                        sections: parsed.sections,
+                        footer: parsed.footer || "For reflection — not certainty. 🌱",
+                      });
                     } else {
-                      // If the API returns something unexpected, fall back
                       openReadingModal(fallbackReading());
                     }
                   } catch (err) {
