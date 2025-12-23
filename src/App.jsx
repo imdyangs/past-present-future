@@ -1,46 +1,8 @@
 // src/App.jsx
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { getDeck } from "./data/decks";
 import { fetchReadingFromApi, fetchHealth } from "./api";
-import { debugParseReadingMarkdown } from "./util";
-
-// Tailwind doesn't ship this keyframe by default; we inline a tiny utility via an arbitrary animation.
-// (Used in the shimmer overlay.)
-
-// --- Image URL resolution + caching (redirect → final Wikimedia URL) ---
-const IMG_CACHE_KEY = "tarot-img-url-cache-v1";
-
-function loadImgCache() {
-  try {
-    return JSON.parse(localStorage.getItem(IMG_CACHE_KEY) || "{}");
-  } catch {
-    return {};
-  }
-}
-
-function saveImgCache(cache) {
-  localStorage.setItem(IMG_CACHE_KEY, JSON.stringify(cache));
-}
-
-async function resolveFinalUrl(specialUrl) {
-  // Follow redirect without downloading the image body
-  const res = await fetch(specialUrl, { method: "HEAD", redirect: "follow" });
-  return res.url || specialUrl;
-}
-
-async function getCachedImageUrl(cardId, specialUrl) {
-  const cache = loadImgCache();
-  if (cache[cardId]) return cache[cardId];
-
-  try {
-    const finalUrl = await resolveFinalUrl(specialUrl);
-    cache[cardId] = finalUrl;
-    saveImgCache(cache);
-    return finalUrl;
-  } catch {
-    return specialUrl;
-  }
-}
+import { debugParseReadingMarkdown, getCachedImageUrl } from "./util";
 
 // --- Cards (imported from deck module) ---
 const ACTIVE_DECK_ID = "riderWaite";
@@ -95,7 +57,33 @@ function renderInlineMarkdown(text) {
   return out;
 }
 
-function ReadingModal({ open, onClose, title, sections, footer }) {
+function formatElapsed(ms) {
+  const total = Math.max(0, Math.floor(ms / 1000));
+  const m = String(Math.floor(total / 60)).padStart(2, "0");
+  const s = String(total % 60).padStart(2, "0");
+  return `${m}:${s}`;
+}
+
+function getLoadingPhaseText(elapsedMs) {
+  if (elapsedMs < 2500) return "Connecting to the reader…";
+  if (elapsedMs < 10000) return "Interpreting your spread…";
+  if (elapsedMs < 20000) return "Writing the story across time…";
+  return "Still working — this sometimes takes a bit.";
+}
+
+function SkeletonLine({ w = "100%", h = 12 }) {
+  return (
+    <div
+      className="relative overflow-hidden rounded-full bg-neutral-900/80"
+      style={{ width: w, height: h }}
+      aria-hidden="true"
+    >
+      <div className="absolute inset-0 -translate-x-[60%] animate-[shimmer_1.2s_ease-in-out_infinite] bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+    </div>
+  );
+}
+
+function ReadingModal({ open, onClose, title, sections, footer, loading, loadingText, elapsedMs }) {
   useEscape(() => {
     if (open) onClose?.();
   });
@@ -164,6 +152,17 @@ function ReadingModal({ open, onClose, title, sections, footer }) {
                 {title}
               </h2>
             ) : null}
+
+            {loading ? (
+              <div className="mt-3 flex items-center gap-3 text-xs uppercase tracking-[0.25em] text-neutral-500">
+                <span className="inline-flex items-center gap-2">
+                  <span className="inline-block h-2 w-2 rounded-full bg-neutral-700 animate-pulse" />
+                  {loadingText || "Generating…"}
+                </span>
+                <span className="text-neutral-700">·</span>
+                <span className="font-mono tracking-normal text-neutral-500">{formatElapsed(elapsedMs || 0)}</span>
+              </div>
+            ) : null}
           </div>
 
           <button
@@ -177,52 +176,83 @@ function ReadingModal({ open, onClose, title, sections, footer }) {
 
         <div className="relative px-6 pb-6 pt-5 max-h-[75vh] overflow-y-auto">
           <div className="space-y-7">
-            {/* past / present / future as one visual section */}
-            {ppfSections.length > 0 ? (
+            {loading ? (
               <div className="rounded-2xl border border-neutral-800/70 bg-neutral-950/30 p-5 md:p-6">
                 <div className="space-y-6">
-                  {ppfSections.map((sec, i) => (
+                  {POSITIONS.map((pos, i) => (
                     <div
-                      key={i}
+                      key={pos}
                       className={i === 0 ? "" : "pt-5 border-t border-neutral-800/60"}
                     >
-                      {sec.heading ? (
-                        <h3 className="text-sm uppercase tracking-[0.25em] text-neutral-300">
-                          {sec.heading}
-                        </h3>
-                      ) : null}
-                      {(sec.paragraphs || []).map((p, j) => (
-                        <p
-                          key={j}
-                          className="mt-3 text-base leading-relaxed text-neutral-200"
-                        >
-                          {renderInlineMarkdown(p)}
-                        </p>
-                      ))}
+                      <h3 className="text-sm uppercase tracking-[0.25em] text-neutral-300">
+                        {pos}
+                      </h3>
+                      <div className="mt-3 space-y-3">
+                        <SkeletonLine w="92%" />
+                        <SkeletonLine w="84%" />
+                        <SkeletonLine w="78%" />
+                      </div>
                     </div>
                   ))}
                 </div>
-              </div>
-            ) : null}
 
-            {/* everything else */}
-            {restSections.map((sec, i) => (
-              <div key={`rest-${i}`} className="space-y-2.5">
-                {sec.heading ? (
-                  <div className="flex items-center gap-3">
-                    <span className="h-px w-8 bg-neutral-800" />
-                    <h3 className="text-sm uppercase tracking-[0.25em] text-neutral-300">
-                      {sec.heading}
-                    </h3>
+                <div className="mt-6 pt-5 border-t border-neutral-800/60">
+                  <div className="flex items-center justify-between gap-4 text-xs tracking-wide text-neutral-500">
+                    <span>Listening for the pattern — usually 15–30 seconds</span>
+                    <span className="text-neutral-700">You can keep reading the cards while this loads.</span>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <>
+                {/* past / present / future as one visual section */}
+                {ppfSections.length > 0 ? (
+                  <div className="rounded-2xl border border-neutral-800/70 bg-neutral-950/30 p-5 md:p-6">
+                    <div className="space-y-6">
+                      {ppfSections.map((sec, i) => (
+                        <div
+                          key={i}
+                          className={i === 0 ? "" : "pt-5 border-t border-neutral-800/60"}
+                        >
+                          {sec.heading ? (
+                            <h3 className="text-sm uppercase tracking-[0.25em] text-neutral-300">
+                              {sec.heading}
+                            </h3>
+                          ) : null}
+                          {(sec.paragraphs || []).map((p, j) => (
+                            <p
+                              key={j}
+                              className="mt-3 text-base leading-relaxed text-neutral-200"
+                            >
+                              {renderInlineMarkdown(p)}
+                            </p>
+                          ))}
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 ) : null}
-                {(sec.paragraphs || []).map((p, j) => (
-                  <p key={j} className="text-base leading-relaxed text-neutral-200">
-                    {renderInlineMarkdown(p)}
-                  </p>
+
+                {/* everything else */}
+                {restSections.map((sec, i) => (
+                  <div key={`rest-${i}`} className="space-y-2.5">
+                    {sec.heading ? (
+                      <div className="flex items-center gap-3">
+                        <span className="h-px w-8 bg-neutral-800" />
+                        <h3 className="text-sm uppercase tracking-[0.25em] text-neutral-300">
+                          {sec.heading}
+                        </h3>
+                      </div>
+                    ) : null}
+                    {(sec.paragraphs || []).map((p, j) => (
+                      <p key={j} className="text-base leading-relaxed text-neutral-200">
+                        {renderInlineMarkdown(p)}
+                      </p>
+                    ))}
+                  </div>
                 ))}
-              </div>
-            ))}
+              </>
+            )}
           </div>
 
           {footer ? (
@@ -240,7 +270,19 @@ function ReadingModal({ open, onClose, title, sections, footer }) {
 
 // Shimmer keyframes (Tailwind arbitrary animation uses this name)
 const animStyle = `@keyframes shimmer { 0% { transform: translateX(-60%); } 100% { transform: translateX(60%); } }
-@keyframes settle { 0% { transform: translateY(10px) scale(0.985); filter: blur(1px); opacity: 0.0; } 100% { transform: translateY(0px) scale(1); filter: blur(0px); opacity: 1.0; } }`;
+@keyframes settle { 0% { transform: translateY(10px) scale(0.985); filter: blur(1px); opacity: 0.0; } 100% { transform: translateY(0px) scale(1); filter: blur(0px); opacity: 1.0; } }
+
+/* CTA loading micro-animations */
+@keyframes breathe {
+  0%, 100% { opacity: 0.75; }
+  50% { opacity: 1; }
+}
+@keyframes ellipsis {
+  0% { content: ""; }
+  33% { content: "."; }
+  66% { content: ".."; }
+  100% { content: "..."; }
+}`;
 
 function TarotCard({ card, position, index = 0 }) {
   return (
@@ -308,6 +350,12 @@ async function preloadSpreadCards(cards) {
 
 export default function TarotApp() {
   const [isReadingOpen, setIsReadingOpen] = useState(false);
+  // If the user closes the modal while an API read is in-flight, reopen it automatically when done.
+  const [reopenReadingWhenDone, setReopenReadingWhenDone] = useState(false);
+
+  // Refs to avoid stale state inside long async handlers
+  const isReadingOpenRef = useRef(false);
+  const reopenReadingWhenDoneRef = useRef(false);
   const [reading, setReading] = useState({ title: "", sections: [], footer: "" });
 
   const [spread, setSpread] = useState([]);
@@ -324,6 +372,10 @@ export default function TarotApp() {
   // Reading CTA loading + errors
   const [isReadingLoading, setIsReadingLoading] = useState(false);
   const [readingError, setReadingError] = useState("");
+
+  // Loading UX: elapsed timer + phased copy
+  const [readingElapsedMs, setReadingElapsedMs] = useState(0);
+  const [readingLoadingText, setReadingLoadingText] = useState("");
 
   useEffect(() => {
     // Health check on page load
@@ -342,6 +394,31 @@ export default function TarotApp() {
   useEffect(() => {
     localStorage.setItem("tarot-history", JSON.stringify(history));
   }, [history]);
+
+  // Keep refs in sync with state (prevents stale closure issues in long async reads)
+  useEffect(() => {
+    isReadingOpenRef.current = isReadingOpen;
+  }, [isReadingOpen]);
+
+  useEffect(() => {
+    reopenReadingWhenDoneRef.current = reopenReadingWhenDone;
+  }, [reopenReadingWhenDone]);
+
+  useEffect(() => {
+    if (!isReadingLoading) return;
+
+    const start = performance.now();
+    setReadingElapsedMs(0);
+    setReadingLoadingText(getLoadingPhaseText(0));
+
+    const id = window.setInterval(() => {
+      const ms = performance.now() - start;
+      setReadingElapsedMs(ms);
+      setReadingLoadingText(getLoadingPhaseText(ms));
+    }, 250);
+
+    return () => window.clearInterval(id);
+  }, [isReadingLoading]);
 
   const drawSpread = async () => {
     // Generate a new cache key for each Reveal click
@@ -376,8 +453,22 @@ export default function TarotApp() {
   };
 
   const openReadingModal = (nextReading) => {
+    // Opening explicitly cancels any pending "reopen when done" intent.
+    setReopenReadingWhenDone(false);
+    reopenReadingWhenDoneRef.current = false;
+
     setReading(nextReading);
     setIsReadingOpen(true);
+    isReadingOpenRef.current = true;
+  };
+
+  const maybeReopenReadingModal = () => {
+    if (reopenReadingWhenDoneRef.current) {
+      setIsReadingOpen(true);
+      isReadingOpenRef.current = true;
+      setReopenReadingWhenDone(false);
+      reopenReadingWhenDoneRef.current = false;
+    }
   };
 
   const buildPromptPayload = () => {
@@ -420,27 +511,26 @@ export default function TarotApp() {
     };
   };
 
-
-const fallbackReading = () => {
+  const fallbackReading = () => {
     const [past, present, future] = spread;
 
     const title = `${POSITIONS[0]} · ${POSITIONS[1]} · ${POSITIONS[2]}`;
 
     const sections = [
       {
-        heading: `PAST — ${past.name}${past.arcana === "Major" ? ` (${past.number})` : ""}`,
+        heading: `PAST — ${past.meaning}`,
         paragraphs: [
           "This card suggests a period where you needed to retreat—not to escape, but to see. It can point to necessary solitude: sifting through noise to reconnect with your inner voice. There’s a sense of shedding distractions so you could remember what actually guides you.",
         ],
       },
       {
-        heading: `PRESENT — ${present.name}`,
+        heading: `PRESENT — ${present.meaning}`,
         paragraphs: [
           "Now, focus narrows. You’re in a phase of disciplined iteration—working patiently on the foundations of something that matters. This isn’t about speed; it’s about refinement. The card invites you to ask: Where does attention to detail feel like devotion, not drudgery?",
         ],
       },
       {
-        heading: `FUTURE — ${future.name}${future.arcana === "Major" ? ` (${future.number})` : ""}`,
+        heading: `FUTURE — ${future.meaning}`,
         paragraphs: [
           "A gentle shift awaits. After invested effort and inner realignment, this points to renewal—not sudden miracles, but a quieter assurance. It speaks to trusting your path again, even if the destination isn’t fully visible. Small, consistent acts of self-trust matter.",
         ],
@@ -466,10 +556,21 @@ const fallbackReading = () => {
     <div className="min-h-screen bg-neutral-950 text-neutral-100 p-6">
       <ReadingModal
         open={isReadingOpen}
-        onClose={() => setIsReadingOpen(false)}
+        onClose={() => {
+          // If user closes while loading, remember to reopen when the reading arrives.
+          if (isReadingLoading) {
+            setReopenReadingWhenDone(true);
+            reopenReadingWhenDoneRef.current = true;
+          }
+          setIsReadingOpen(false);
+          isReadingOpenRef.current = false;
+        }}
         title={reading.title}
         sections={reading.sections}
         footer={reading.footer}
+        loading={isReadingLoading}
+        loadingText={readingLoadingText}
+        elapsedMs={readingElapsedMs}
       />
 
       <style>{animStyle}</style>
@@ -517,17 +618,22 @@ const fallbackReading = () => {
                 onClick={async () => {
                   if (!spread || spread.length !== 3) return;
 
+                  // Open modal immediately (B): users should never wonder if click worked.
+                  // Also clear any pending "reopen when done" from a prior run.
+                  setReopenReadingWhenDone(false);
+                  openReadingModal({
+                    title: POSITIONS.join(" · "),
+                    sections: [],
+                    footer: "For reflection — not certainty. 🌱",
+                  });
+
                   // If the reveal cache key hasn't changed, reuse the cached API result
                   // (i.e., same revealed cards => same reading)
                   const key = revealCacheKey || spread.map((c) => c?.id).join("|");
                   if (cachedApiReading && readingCacheKey === key) {
                     console.log("[reading] cache hit:", key);
                     console.log("[reading] raw api response:", cachedApiReading);
-                    debugParseReadingMarkdown(
-                      cachedApiReading?.text ??
-                        cachedApiReading?.raw?.choices?.[0]?.message?.content ??
-                        ""
-                    );
+
                     const cachedMd =
                       cachedApiReading?.text ??
                       cachedApiReading?.raw?.choices?.[0]?.message?.content ??
@@ -535,14 +641,31 @@ const fallbackReading = () => {
 
                     const parsed = debugParseReadingMarkdown(cachedMd);
                     if (parsed?.sections?.length) {
-                      openReadingModal({
+                      const withMeanings = parsed.sections.map((sec, idx) => {
+                        if (idx < 3 && spread[idx]?.meaning) {
+                          return {
+                            ...sec,
+                            heading: `${sec.heading} · ${spread[idx].meaning}`,
+                          };
+                        }
+                        return sec;
+                      });
+
+                      setReading({
                         title: POSITIONS.join(" · "),
-                        sections: parsed.sections,
+                        sections: withMeanings,
                         footer: parsed.footer || "For reflection — not certainty. 🌱",
                       });
+
+                      // If the user closed the modal while we were loading, reopen now.
+                      maybeReopenReadingModal();
                     } else {
-                      openReadingModal(fallbackReading());
+                      setReading(fallbackReading());
                     }
+
+                    // If the user closed the modal while we were loading, reopen now.
+                    maybeReopenReadingModal();
+
                     return;
                   }
 
@@ -554,8 +677,6 @@ const fallbackReading = () => {
                     const payload = buildPromptPayload();
 
                     // 2) Call your LLM-backed API (Cloudflare worker / OpenRouter proxy)
-                    // fetchReadingFromApi should return: { title, sections, footer }
-                    // If your API returns raw text, you can wrap it into sections.
                     const apiReading = await fetchReadingFromApi(payload);
 
                     // Save for reuse if the cards (reveal) haven't changed
@@ -573,18 +694,35 @@ const fallbackReading = () => {
                     const parsed = debugParseReadingMarkdown(md);
 
                     if (parsed?.sections?.length) {
-                      openReadingModal({
+                      const withMeanings = parsed.sections.map((sec, idx) => {
+                        if (idx < 3 && spread[idx]?.meaning) {
+                          return {
+                            ...sec,
+                            heading: `${sec.heading} · ${spread[idx].meaning}`,
+                          };
+                        }
+                        return sec;
+                      });
+
+                      setReading({
                         title: POSITIONS.join(" · "),
-                        sections: parsed.sections,
+                        sections: withMeanings,
                         footer: parsed.footer || "For reflection — not certainty. 🌱",
                       });
+
+                      // If the user closed the modal while we were loading, reopen now.
+                      maybeReopenReadingModal();
                     } else {
-                      openReadingModal(fallbackReading());
+                      setReading(fallbackReading());
+                    maybeReopenReadingModal();
                     }
                   } catch (err) {
                     // Keep UI calm: fall back, but also show a subtle error
-                    setReadingError("Couldn’t reach the reading service. Showing a local reflection instead.");
-                    openReadingModal(fallbackReading());
+                    setReadingError(
+                      "Couldn’t reach the reading service. Showing a local reflection instead."
+                    );
+                    setReading(fallbackReading());
+                    maybeReopenReadingModal();
                   } finally {
                     setIsReadingLoading(false);
                   }
@@ -592,7 +730,11 @@ const fallbackReading = () => {
               >
                 <div className="flex flex-col items-center gap-3">
                   <span className="text-2xl md:text-3xl font-light tracking-tight text-neutral-100">
-                    {isReadingLoading ? "Reading…" : "Get a reading"}
+                    {isReadingLoading ? (
+                      <span className="inline-flex items-center gap-1 animate-[breathe_2.4s_ease-in-out_infinite]">
+                        Reading<span className="w-3 text-left after:content-[''] after:animate-[ellipsis_1.4s_steps(1,end)_infinite]"></span>
+                      </span>
+                    ) : "Get a reading"}
                   </span>
                   <span className="inline-block h-px w-12 bg-neutral-600 group-hover:w-20 transition-all duration-300" />
                   <span className="text-xs tracking-wide text-neutral-400">

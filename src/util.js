@@ -70,3 +70,39 @@ export function debugParseReadingMarkdown(markdown) {
 
     return { sections, footer };
 }
+
+
+// --- Image URL resolution + caching (redirect → final Wikimedia URL) ---
+const IMG_CACHE_KEY = "tarot-img-url-cache-v1";
+
+function loadImgCache() {
+  try {
+    return JSON.parse(localStorage.getItem(IMG_CACHE_KEY) || "{}");
+  } catch {
+    return {};
+  }
+}
+
+function saveImgCache(cache) {
+  localStorage.setItem(IMG_CACHE_KEY, JSON.stringify(cache));
+}
+
+async function resolveFinalUrl(specialUrl) {
+  // Follow redirect without downloading the image body
+  const res = await fetch(specialUrl, { method: "HEAD", redirect: "follow" });
+  return res.url || specialUrl;
+}
+
+export async function getCachedImageUrl(cardId, specialUrl) {
+  const cache = loadImgCache();
+  if (cache[cardId]) return cache[cardId];
+
+  try {
+    const finalUrl = await resolveFinalUrl(specialUrl);
+    cache[cardId] = finalUrl;
+    saveImgCache(cache);
+    return finalUrl;
+  } catch {
+    return specialUrl;
+  }
+}
