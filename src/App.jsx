@@ -590,7 +590,7 @@ export default function TarotApp() {
                         if (idx < 3 && spread[idx]?.meaning) {
                           return {
                             ...sec,
-                            heading: `${sec.heading} ${spread[idx].meaning}`,
+                            heading: `${sec.heading} — ${spread[idx].meaning}`,
                           };
                         }
                         return sec;
@@ -653,7 +653,7 @@ export default function TarotApp() {
                         if (idx < 3 && spread[idx]?.meaning) {
                           return {
                             ...sec,
-                            heading: `${sec.heading} ${spread[idx].meaning}`,
+                            heading: `${sec.heading} — ${spread[idx].meaning}`,
                           };
                         }
                         return sec;
