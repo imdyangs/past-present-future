@@ -2,8 +2,9 @@
 import { useState, useEffect, useRef } from "react";
 import { getDeck } from "./data/decks";
 import { fetchReadingFromApi, fetchHealth } from "./api";
-import { formatElapsed, getLoadingPhaseText, preloadSpreadCards } from "./util";
-import { debugParseReadingMarkdown, renderInlineMarkdown } from "./markdownUtil"
+import { formatElapsed, getLoadingPhaseText, preloadSpreadCards } from "./utils/util";
+import { debugParseReadingMarkdown, renderInlineMarkdown } from "./utils/markdownUtil"
+import { clarityEvent, claritySet, waitBucket, spreadTag } from './utils/clarityUtil'
 
 // --- Cards (imported from deck module) ---
 const ACTIVE_DECK_ID = "riderWaite";
@@ -307,6 +308,9 @@ export default function TarotApp() {
   const [readingElapsedMs, setReadingElapsedMs] = useState(0);
   const [readingLoadingText, setReadingLoadingText] = useState("");
 
+  // Instrumentation refs
+  const readingRequestStartMsRef = useRef(0);
+
   useEffect(() => {
     // Health check on page load
     fetchHealth()
@@ -351,6 +355,8 @@ export default function TarotApp() {
   }, [isReadingLoading]);
 
   const drawSpread = async () => {
+    clarityEvent("reveal");
+    claritySet("deck", ACTIVE_DECK_ID);
     // Generate a new cache key for each Reveal click
     const newCacheKey = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
     setRevealCacheKey(newCacheKey);
@@ -489,6 +495,7 @@ export default function TarotApp() {
         onClose={() => {
           // If user closes while loading, remember to reopen when the reading arrives.
           if (isReadingLoading) {
+            clarityEvent("reading_closed_while_loading");
             setReopenReadingWhenDone(true);
             reopenReadingWhenDoneRef.current = true;
           }
@@ -548,6 +555,12 @@ export default function TarotApp() {
                 onClick={async () => {
                   if (!spread || spread.length !== 3) return;
 
+                  clarityEvent("get_reading");
+                  claritySet("deck", ACTIVE_DECK_ID);
+                  const sTag = spreadTag(spread);
+                  if (sTag) claritySet("spread", sTag);
+                  readingRequestStartMsRef.current = performance.now();
+
                   // Open modal immediately (B): users should never wonder if click worked.
                   // Also clear any pending "reopen when done" from a prior run.
                   setReopenReadingWhenDone(false);
@@ -561,6 +574,8 @@ export default function TarotApp() {
                   // (i.e., same revealed cards => same reading)
                   const key = revealCacheKey || spread.map((c) => c?.id).join("|");
                   if (cachedApiReading && readingCacheKey === key) {
+                    clarityEvent("reading_cache_hit");
+                    claritySet("reading_source", "cache");
                     console.log("[reading] cache hit:", key);
                     console.log("[reading] raw api response:", cachedApiReading);
 
@@ -587,10 +602,22 @@ export default function TarotApp() {
                         footer: parsed.footer || "For reflection — not certainty. 🌱",
                       });
 
+                      const waitMs = performance.now() - (readingRequestStartMsRef.current || performance.now());
+                      clarityEvent("reading_loaded");
+                      claritySet("reading_wait_bucket", waitBucket(waitMs));
+                      if (isReadingOpenRef.current) clarityEvent("reading_waited");
+
+                      clarityEvent("reading_loaded");
+                      claritySet("reading_wait_bucket", "0-1s");
+                      // If the reading is visible when it arrives, count as "waited".
+                      if (isReadingOpenRef.current) clarityEvent("reading_waited");
+
                       // If the user closed the modal while we were loading, reopen now.
                       maybeReopenReadingModal();
                     } else {
                       setReading(fallbackReading());
+                      clarityEvent("reading_fallback_used");
+                      claritySet("reading_source", "fallback");
                     }
 
                     // If the user closed the modal while we were loading, reopen now.
@@ -608,6 +635,8 @@ export default function TarotApp() {
 
                     // 2) Call your LLM-backed API (Cloudflare worker / OpenRouter proxy)
                     const apiReading = await fetchReadingFromApi(payload);
+
+                    claritySet("reading_source", "api");
 
                     // Save for reuse if the cards (reveal) haven't changed
                     setReadingCacheKey(key);
@@ -644,13 +673,17 @@ export default function TarotApp() {
                       maybeReopenReadingModal();
                     } else {
                       setReading(fallbackReading());
-                    maybeReopenReadingModal();
+                      clarityEvent("reading_fallback_used");
+                      claritySet("reading_source", "fallback_parse");
+                      maybeReopenReadingModal();
                     }
                   } catch (err) {
                     // Keep UI calm: fall back, but also show a subtle error
                     setReadingError(
                       "Couldn’t reach the reading service. Showing a local reflection instead."
                     );
+                    clarityEvent("reading_api_error");
+                    claritySet("reading_source", "fallback_error");
                     setReading(fallbackReading());
                     maybeReopenReadingModal();
                   } finally {
