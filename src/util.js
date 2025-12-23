@@ -1,77 +1,3 @@
-// --- Debug helper: parse markdown reading + log structure ---
-export function debugParseReadingMarkdown(markdown) {
-    if (!markdown) {
-        console.warn("[debugParseReadingMarkdown] empty input");
-        return { sections: [], footer: "" };
-    }
-
-    // Important: use escaped newlines, not literal newlines inside quotes
-    const text = String(markdown).replace(/\r/g, "");
-    const lines = text.split("\n");
-
-    const sections = [];
-    let current = null;
-
-    const flush = () => {
-        if (!current) return;
-
-        const paragraphs = [];
-        let buf = [];
-
-        for (const line of current.body) {
-            const t = String(line).trim();
-
-            if (!t) {
-                if (buf.length) {
-                    paragraphs.push(buf.join("\n"));
-                    buf = [];
-                }
-                continue;
-            }
-
-            if (t === "---") continue;
-            buf.push(t);
-        }
-
-        if (buf.length) paragraphs.push(buf.join("\n"));
-
-        sections.push({ heading: current.heading, paragraphs });
-        current = null;
-    };
-
-    let footer = "";
-
-    for (const rawLine of lines) {
-        const line = String(rawLine).trim();
-
-        if (
-            line.toLowerCase().startsWith("for reflection") &&
-            line.toLowerCase().includes("not certainty")
-        ) {
-            footer = line;
-            continue;
-        }
-
-        if (line.startsWith("### ")) {
-            flush();
-            current = { heading: line.slice(4).trim(), body: [] };
-            continue;
-        }
-
-        if (current) current.body.push(rawLine);
-    }
-
-    flush();
-
-    console.group("[debugParseReadingMarkdown]");
-    console.log("sections:", sections);
-    console.log("footer:", footer);
-    console.groupEnd();
-
-    return { sections, footer };
-}
-
-
 // --- Image URL resolution + caching (redirect → final Wikimedia URL) ---
 const IMG_CACHE_KEY = "tarot-img-url-cache-v1";
 
@@ -93,7 +19,7 @@ async function resolveFinalUrl(specialUrl) {
   return res.url || specialUrl;
 }
 
-export async function getCachedImageUrl(cardId, specialUrl) {
+async function getCachedImageUrl(cardId, specialUrl) {
   const cache = loadImgCache();
   if (cache[cardId]) return cache[cardId];
 
@@ -105,4 +31,41 @@ export async function getCachedImageUrl(cardId, specialUrl) {
   } catch {
     return specialUrl;
   }
+}
+
+function preloadImage(url) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => resolve(true);
+    img.onerror = () => resolve(false);
+    img.src = url;
+  });
+}
+
+export async function preloadSpreadCards(cards) {
+  // Resolve redirect URLs first (cached), then preload the actual image bytes.
+  const withResolved = await Promise.all(
+    cards.map(async (c) => {
+      const resolved = await getCachedImageUrl(c.id, c.img);
+      return { ...c, img: resolved };
+    })
+  );
+
+  await Promise.all(withResolved.map((c) => preloadImage(c.img)));
+  return withResolved;
+}
+
+
+export function formatElapsed(ms) {
+  const total = Math.max(0, Math.floor(ms / 1000));
+  const m = String(Math.floor(total / 60)).padStart(2, "0");
+  const s = String(total % 60).padStart(2, "0");
+  return `${m}:${s}`;
+}
+
+export function getLoadingPhaseText(elapsedMs) {
+  if (elapsedMs < 2500) return "Connecting to the reader…";
+  if (elapsedMs < 10000) return "Interpreting your spread…";
+  if (elapsedMs < 20000) return "Writing the story across time…";
+  return "Still working — this sometimes takes a bit.";
 }

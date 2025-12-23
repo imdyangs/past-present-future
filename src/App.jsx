@@ -2,7 +2,8 @@
 import { useState, useEffect, useRef } from "react";
 import { getDeck } from "./data/decks";
 import { fetchReadingFromApi, fetchHealth } from "./api";
-import { debugParseReadingMarkdown, getCachedImageUrl } from "./util";
+import { formatElapsed, getLoadingPhaseText, preloadSpreadCards } from "./util";
+import { debugParseReadingMarkdown, renderInlineMarkdown } from "./markdownUtil"
 
 // --- Cards (imported from deck module) ---
 const ACTIVE_DECK_ID = "riderWaite";
@@ -20,55 +21,6 @@ function useEscape(handler) {
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [handler]);
-}
-
-// --- Tiny inline-markdown renderer (bold/italic) ---
-function renderInlineMarkdown(text) {
-  const s = String(text || "");
-  const out = [];
-
-  // Tokenize on **bold** and *italic* (simple, non-nested)
-  const re = /(\*\*[^*]+\*\*)|(\*[^*]+\*)/g;
-  let last = 0;
-  let m;
-
-  while ((m = re.exec(s)) !== null) {
-    if (m.index > last) out.push(s.slice(last, m.index));
-    const token = m[0];
-
-    if (token.startsWith("**")) {
-      out.push(
-        <strong key={`b-${m.index}`} className="font-semibold text-neutral-100">
-          {token.slice(2, -2)}
-        </strong>
-      );
-    } else {
-      out.push(
-        <em key={`i-${m.index}`} className="italic text-neutral-200">
-          {token.slice(1, -1)}
-        </em>
-      );
-    }
-
-    last = m.index + token.length;
-  }
-
-  if (last < s.length) out.push(s.slice(last));
-  return out;
-}
-
-function formatElapsed(ms) {
-  const total = Math.max(0, Math.floor(ms / 1000));
-  const m = String(Math.floor(total / 60)).padStart(2, "0");
-  const s = String(total % 60).padStart(2, "0");
-  return `${m}:${s}`;
-}
-
-function getLoadingPhaseText(elapsedMs) {
-  if (elapsedMs < 2500) return "Connecting to the reader…";
-  if (elapsedMs < 10000) return "Interpreting your spread…";
-  if (elapsedMs < 20000) return "Writing the story across time…";
-  return "Still working — this sometimes takes a bit.";
 }
 
 function SkeletonLine({ w = "100%", h = 12 }) {
@@ -324,28 +276,6 @@ function TarotCard({ card, position, index = 0 }) {
       </div>
     </div>
   );
-}
-
-function preloadImage(url) {
-  return new Promise((resolve) => {
-    const img = new Image();
-    img.onload = () => resolve(true);
-    img.onerror = () => resolve(false);
-    img.src = url;
-  });
-}
-
-async function preloadSpreadCards(cards) {
-  // Resolve redirect URLs first (cached), then preload the actual image bytes.
-  const withResolved = await Promise.all(
-    cards.map(async (c) => {
-      const resolved = await getCachedImageUrl(c.id, c.img);
-      return { ...c, img: resolved };
-    })
-  );
-
-  await Promise.all(withResolved.map((c) => preloadImage(c.img)));
-  return withResolved;
 }
 
 export default function TarotApp() {
