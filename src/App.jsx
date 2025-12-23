@@ -577,7 +577,7 @@ export default function TarotApp() {
 
       <div className="max-w-6xl mx-auto">
         <h1 className="text-4xl md:text-5xl font-light tracking-tight mb-6">
-          past · present · future
+          Past · Present · Future
         </h1>
         <p className="sr-only">Tarot reading</p>
 
