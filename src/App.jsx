@@ -588,9 +588,10 @@ export default function TarotApp() {
                     if (parsed?.sections?.length) {
                       const withMeanings = parsed.sections.map((sec, idx) => {
                         if (idx < 3 && spread[idx]?.meaning) {
+                          // Force heading to be just POSITION — MEANING (no card name)
                           return {
                             ...sec,
-                            heading: `${sec.heading} — ${spread[idx].meaning}`,
+                            heading: `${POSITIONS[idx].toUpperCase()} — ${spread[idx].meaning}`,
                           };
                         }
                         return sec;
@@ -651,9 +652,10 @@ export default function TarotApp() {
                     if (parsed?.sections?.length) {
                       const withMeanings = parsed.sections.map((sec, idx) => {
                         if (idx < 3 && spread[idx]?.meaning) {
+                          // Force heading to be just POSITION — MEANING (no card name)
                           return {
                             ...sec,
-                            heading: `${sec.heading} — ${spread[idx].meaning}`,
+                            heading: `${POSITIONS[idx].toUpperCase()} — ${spread[idx].meaning}`,
                           };
                         }
                         return sec;
