@@ -2,8 +2,9 @@
 import { useState, useEffect, useRef } from "react";
 import { getDeck } from "./data/decks";
 import { fetchReadingFromApi, fetchHealth } from "./api";
-import { formatElapsed, getLoadingPhaseText, preloadSpreadCards } from "./util";
-import { debugParseReadingMarkdown, renderInlineMarkdown } from "./markdownUtil"
+import { formatElapsed, getLoadingPhaseText, preloadSpreadCards } from "./utils/util";
+import { debugParseReadingMarkdown, renderInlineMarkdown } from "./utils/markdownUtil"
+import { clarityEvent, claritySet, waitBucket, spreadTag } from './utils/clarityUtil'
 
 // --- Cards (imported from deck module) ---
 const ACTIVE_DECK_ID = "riderWaite";
@@ -11,45 +12,6 @@ const ACTIVE_DECK = getDeck(ACTIVE_DECK_ID);
 const CARDS = ACTIVE_DECK.cards;
 
 const POSITIONS = ["Past", "Present", "Future"];
-
-// --- Clarity (optional) ---
-// Events: window.clarity("event", "name")
-// Tags:   window.clarity("set", "key", "value")
-function clarityEvent(name) {
-  try {
-    if (typeof window !== "undefined" && typeof window.clarity === "function") {
-      window.clarity("event", String(name));
-    }
-  } catch {}
-}
-
-function claritySet(key, value) {
-  try {
-    if (typeof window !== "undefined" && typeof window.clarity === "function") {
-      window.clarity("set", String(key), Array.isArray(value) ? value.map(String) : String(value));
-    }
-  } catch {}
-}
-
-function waitBucket(ms) {
-  const s = Math.max(0, Math.round(ms / 1000));
-  if (s <= 1) return "0-1s";
-  if (s <= 5) return "2-5s";
-  if (s <= 10) return "6-10s";
-  if (s <= 20) return "11-20s";
-  if (s <= 30) return "21-30s";
-  return "31s+";
-}
-
-function spreadTag(spread) {
-  // Keep tags compact & deterministic
-  try {
-    if (!Array.isArray(spread) || spread.length !== 3) return "";
-    return spread.map((c) => c?.id || c?.name || "").filter(Boolean).join("|");
-  } catch {
-    return "";
-  }
-}
 
 // --- Modal helpers ---
 function useEscape(handler) {
