@@ -13,6 +13,12 @@ const CARDS = ACTIVE_DECK.cards;
 
 const POSITIONS = ["Past", "Present", "Future"];
 
+// First keyword from a card meaning string (e.g. "Intuition, inner knowing" -> "Intuition")
+const firstMeaningWord = (meaning = "") => {
+  const firstChunk = String(meaning).split(",")[0] || "";
+  return firstChunk.trim().split(/\\s+/)[0] || "";
+};
+
 // --- Modal helpers ---
 function useEscape(handler) {
   useEffect(() => {
@@ -772,8 +778,11 @@ export default function TarotApp() {
                     className="text-left"
                     aria-label={`Open ${POSITIONS[i]} card: ${card.name}`}
                   >
-                    <div className="text-xs uppercase tracking-[0.25em] text-neutral-500 mb-2">
+                    <div className="text-xs uppercase tracking-[0.25em] text-neutral-500 mb-1">
                       {POSITIONS[i]}
+                    </div>
+                    <div className="text-[10px] uppercase tracking-[0.28em] text-neutral-600 mb-2">
+                      {firstMeaningWord(card.meaning)}
                     </div>
                     <div className="rounded-2xl border border-neutral-800/70 bg-neutral-950/30 p-2">
                       <div className="relative rounded-xl overflow-hidden aspect-[3/5] bg-neutral-950">
