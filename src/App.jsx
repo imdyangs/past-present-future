@@ -221,6 +221,90 @@ function ReadingModal({ open, onClose, title, sections, footer, loading, loading
   );
 }
 
+function CardDetailModal({ open, onClose, card, position }) {
+  useEscape(() => {
+    if (open) onClose?.();
+  });
+
+  if (!open || !card) return null;
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      role="dialog"
+      aria-modal="true"
+      aria-label={card.name || "Card"}
+    >
+      <button
+        className="absolute inset-0 bg-black/70 backdrop-blur-sm"
+        onClick={onClose}
+        aria-label="Close card"
+      />
+
+      <div className="relative w-full max-w-sm rounded-2xl border border-neutral-800 bg-neutral-950 text-neutral-100 overflow-hidden shadow-[0_30px_120px_rgba(0,0,0,0.75)]">
+        <div
+          className="pointer-events-none absolute inset-0"
+          style={{
+            background:
+              "linear-gradient(135deg, rgba(255,255,255,0.10), rgba(255,255,255,0.02) 35%, rgba(255,255,255,0.08) 70%, rgba(255,255,255,0.02)",
+            opacity: 0.08,
+          }}
+        />
+
+        <div className="relative px-5 pt-5 pb-4 flex items-start justify-between gap-4">
+          <div>
+            <div className="text-xs uppercase tracking-[0.3em] text-neutral-500">
+              {position}
+            </div>
+            <h2 className="mt-2 text-2xl font-light tracking-tight">
+              {card.name}
+            </h2>
+          </div>
+          <button
+            onClick={onClose}
+            className="rounded-full border border-neutral-800 bg-neutral-950/60 px-3 py-2 text-sm text-neutral-300 hover:text-neutral-100 hover:border-neutral-600 hover:bg-neutral-900/50 transition"
+            aria-label="Close"
+          >
+            ✕
+          </button>
+        </div>
+
+        <div className="relative px-5 pb-5">
+          <div className="rounded-2xl border border-neutral-800/70 bg-neutral-950/30 p-4">
+            <div className="relative rounded-xl overflow-hidden aspect-[3/5] bg-neutral-950">
+              <img
+                src={card.img}
+                alt={card.name}
+                decoding="async"
+                loading="eager"
+                className="w-full h-full object-contain"
+              />
+            </div>
+
+            <div className="mt-4">
+              <div className="text-sm uppercase tracking-[0.25em] text-neutral-400">
+                Meaning
+              </div>
+              <div className="mt-2 text-base text-neutral-200 leading-relaxed">
+                {card.meaning}
+              </div>
+              {card.description ? (
+                <div className="mt-3 text-sm text-neutral-400 leading-relaxed">
+                  {card.description}
+                </div>
+              ) : null}
+            </div>
+          </div>
+
+          <div className="mt-4 text-center text-xs tracking-wide text-neutral-500">
+            Tap outside to close.
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // Shimmer keyframes (Tailwind arbitrary animation uses this name)
 const animStyle = `@keyframes shimmer { 0% { transform: translateX(-60%); } 100% { transform: translateX(60%); } }
 @keyframes settle { 0% { transform: translateY(10px) scale(0.985); filter: blur(1px); opacity: 0.0; } 100% { transform: translateY(0px) scale(1); filter: blur(0px); opacity: 1.0; } }
@@ -292,6 +376,10 @@ export default function TarotApp() {
   const [spread, setSpread] = useState([]);
   const [history, setHistory] = useState([]);
   const [isDrawing, setIsDrawing] = useState(false);
+
+  // Mobile: tap small cards to open a larger view
+  const [isCardDetailOpen, setIsCardDetailOpen] = useState(false);
+  const [selectedCardIdx, setSelectedCardIdx] = useState(null);
 
   // Cache key for the currently revealed spread
   const [revealCacheKey, setRevealCacheKey] = useState(null);
@@ -487,9 +575,135 @@ export default function TarotApp() {
     return { title, sections, footer: "For reflection — not certainty. 🌱" };
   };
 
+  const handleGetReading = async () => {
+    if (!spread || spread.length !== 3) return;
+
+    clarityEvent("get_reading");
+    claritySet("deck", ACTIVE_DECK_ID);
+    const sTag = spreadTag(spread);
+    if (sTag) claritySet("spread", sTag);
+    readingRequestStartMsRef.current = performance.now();
+
+    // Open modal immediately: users should never wonder if click worked.
+    setReopenReadingWhenDone(false);
+    openReadingModal({
+      title: POSITIONS.join(" · "),
+      sections: [],
+      footer: "For reflection — not certainty. 🌱",
+    });
+
+    const key = revealCacheKey || spread.map((c) => c?.id).join("|");
+
+    // Cache hit
+    if (cachedApiReading && readingCacheKey === key) {
+      clarityEvent("reading_cache_hit");
+      claritySet("reading_source", "cache");
+
+      const cachedMd =
+        cachedApiReading?.text ??
+        cachedApiReading?.raw?.choices?.[0]?.message?.content ??
+        "";
+
+      const parsed = debugParseReadingMarkdown(cachedMd);
+      if (parsed?.sections?.length) {
+        const withMeanings = parsed.sections.map((sec, idx) => {
+          if (idx < 3 && spread[idx]?.meaning) {
+            return {
+              ...sec,
+              heading: `${POSITIONS[idx].toUpperCase()} — ${spread[idx].meaning}`,
+            };
+          }
+          return sec;
+        });
+
+        setReading({
+          title: POSITIONS.join(" · "),
+          sections: withMeanings,
+          footer: parsed.footer || "For reflection — not certainty. 🌱",
+        });
+
+        const waitMs =
+          performance.now() -
+          (readingRequestStartMsRef.current || performance.now());
+        clarityEvent("reading_loaded");
+        claritySet("reading_wait_bucket", waitBucket(waitMs));
+        if (isReadingOpenRef.current) clarityEvent("reading_waited");
+        maybeReopenReadingModal();
+      } else {
+        setReading(fallbackReading());
+        clarityEvent("reading_fallback_used");
+        claritySet("reading_source", "fallback");
+        maybeReopenReadingModal();
+      }
+
+      return;
+    }
+
+    setReadingError("");
+    setIsReadingLoading(true);
+
+    try {
+      const payload = buildPromptPayload();
+      const apiReading = await fetchReadingFromApi(payload);
+
+      claritySet("reading_source", "api");
+
+      setReadingCacheKey(key);
+      setCachedApiReading(apiReading);
+
+      const md =
+        apiReading?.text ??
+        apiReading?.raw?.choices?.[0]?.message?.content ??
+        "";
+
+      const parsed = debugParseReadingMarkdown(md);
+
+      if (parsed?.sections?.length) {
+        const withMeanings = parsed.sections.map((sec, idx) => {
+          if (idx < 3 && spread[idx]?.meaning) {
+            return {
+              ...sec,
+              heading: `${POSITIONS[idx].toUpperCase()} — ${spread[idx].meaning}`,
+            };
+          }
+          return sec;
+        });
+
+        setReading({
+          title: POSITIONS.join(" · "),
+          sections: withMeanings,
+          footer: parsed.footer || "For reflection — not certainty. 🌱",
+        });
+
+        maybeReopenReadingModal();
+      } else {
+        setReading(fallbackReading());
+        clarityEvent("reading_fallback_used");
+        claritySet("reading_source", "fallback_parse");
+        maybeReopenReadingModal();
+      }
+    } catch (err) {
+      setReadingError(
+        "Couldn’t reach the reading service. Showing a local reflection instead."
+      );
+      clarityEvent("reading_api_error");
+      claritySet("reading_source", "fallback_error");
+      setReading(fallbackReading());
+      maybeReopenReadingModal();
+    } finally {
+      setIsReadingLoading(false);
+    }
+  };
+
   // Images are preloaded as a batch; no per-card load callback needed.
   return (
     <div className="min-h-screen bg-neutral-950 text-neutral-100 p-6">
+      <CardDetailModal
+        open={isCardDetailOpen}
+        onClose={() => setIsCardDetailOpen(false)}
+        card={selectedCardIdx != null ? spread?.[selectedCardIdx] : null}
+        position={selectedCardIdx != null ? POSITIONS[selectedCardIdx] : ""}
+      />
       <ReadingModal
         open={isReadingOpen}
         onClose={() => {
@@ -521,7 +735,7 @@ export default function TarotApp() {
         {/* Co–Star-style section divider */}
         <div className="h-px w-full bg-neutral-800/50 mb-8" />
 
-        <div className="mb-2 md:mb-4">
+        <div className="mb-4 sm:mb-2 md:mb-4">
           <button
             onClick={drawSpread}
             disabled={isDrawing}
@@ -536,158 +750,93 @@ export default function TarotApp() {
               </span>
               <span className="inline-block h-px w-12 bg-neutral-700 group-hover:w-20 transition-all duration-300" />
             </div>
+            <div className="mt-1 text-xs tracking-wide text-neutral-500">
+              Tap to draw three cards.
+            </div>
           </button>
         </div>
 
         {!isDrawing && spread.length > 0 && (
           <>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-10 mb-6 md:mb-8">
+            {/* Mobile: three cards in a row (tap to open) */}
+            <div className="md:hidden">
+              <div className="grid grid-cols-3 gap-3 mb-5">
+                {spread.map((card, i) => (
+                  <button
+                    key={card.id}
+                    type="button"
+                    onClick={() => {
+                      setSelectedCardIdx(i);
+                      setIsCardDetailOpen(true);
+                    }}
+                    className="text-left"
+                    aria-label={`Open ${POSITIONS[i]} card: ${card.name}`}
+                  >
+                    <div className="text-xs uppercase tracking-[0.25em] text-neutral-500 mb-2">
+                      {POSITIONS[i]}
+                    </div>
+                    <div className="rounded-2xl border border-neutral-800/70 bg-neutral-950/30 p-2">
+                      <div className="relative rounded-xl overflow-hidden aspect-[3/5] bg-neutral-950">
+                        <img
+                          src={card.img}
+                          alt={card.name}
+                          decoding="async"
+                          loading="eager"
+                          className="w-full h-full object-contain"
+                        />
+                      </div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+
+              {/* Mobile: CTA visible on this screen */}
+              <div className="mb-10">
+                <button
+                  className="group w-full rounded-2xl border border-neutral-800 bg-neutral-950/60 px-6 py-6 text-center transition hover:border-neutral-600 hover:bg-neutral-950 focus:outline-none disabled:opacity-60 disabled:cursor-not-allowed"
+                  disabled={isReadingLoading}
+                  onClick={handleGetReading}
+                >
+                  <div className="flex flex-col items-center gap-3">
+                    <span className="text-2xl font-light tracking-tight text-neutral-100">
+                      {isReadingLoading ? (
+                        <span className="inline-flex items-center gap-1 animate-[breathe_2.4s_ease-in-out_infinite]">
+                          Reading<span className="w-3 text-left after:content-[''] after:animate-[ellipsis_1.4s_steps(1,end)_infinite]"></span>
+                        </span>
+                      ) : (
+                        "Get a reading"
+                      )}
+                    </span>
+                    <span className="inline-block h-px w-12 bg-neutral-600 group-hover:w-20 transition-all duration-300" />
+                    <span className="text-xs tracking-wide text-neutral-400">
+                      For reflection — not certainty.
+                    </span>
+                  </div>
+                </button>
+
+                {readingError ? (
+                  <div className="mt-4 flex justify-center">
+                    <div className="max-w-md text-center text-xs tracking-wide text-neutral-500">
+                      {readingError}
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+            </div>
+
+            {/* Desktop/tablet: full cards */}
+            <div className="hidden md:grid grid-cols-3 gap-10 mb-6 md:mb-8">
               {spread.map((card, i) => (
                 <TarotCard key={card.id} card={card} position={POSITIONS[i]} index={i} />
               ))}
             </div>
 
             {/* AI Reading CTA */}
-            <div className="mb-12 md:mb-16 flex justify-center">
+            <div className="hidden md:flex mb-12 md:mb-16 justify-center">
               <button
                 className="group w-full max-w-md rounded-2xl border border-neutral-800 bg-neutral-950/60 px-6 py-6 text-center transition hover:border-neutral-600 hover:bg-neutral-950 focus:outline-none disabled:opacity-60 disabled:cursor-not-allowed"
                 disabled={isReadingLoading}
-                onClick={async () => {
-                  if (!spread || spread.length !== 3) return;
-
-                  clarityEvent("get_reading");
-                  claritySet("deck", ACTIVE_DECK_ID);
-                  const sTag = spreadTag(spread);
-                  if (sTag) claritySet("spread", sTag);
-                  readingRequestStartMsRef.current = performance.now();
-
-                  // Open modal immediately (B): users should never wonder if click worked.
-                  // Also clear any pending "reopen when done" from a prior run.
-                  setReopenReadingWhenDone(false);
-                  openReadingModal({
-                    title: POSITIONS.join(" · "),
-                    sections: [],
-                    footer: "For reflection — not certainty. 🌱",
-                  });
-
-                  // If the reveal cache key hasn't changed, reuse the cached API result
-                  // (i.e., same revealed cards => same reading)
-                  const key = revealCacheKey || spread.map((c) => c?.id).join("|");
-                  if (cachedApiReading && readingCacheKey === key) {
-                    clarityEvent("reading_cache_hit");
-                    claritySet("reading_source", "cache");
-                    console.log("[reading] cache hit:", key);
-                    console.log("[reading] raw api response:", cachedApiReading);
-
-                    const cachedMd =
-                      cachedApiReading?.text ??
-                      cachedApiReading?.raw?.choices?.[0]?.message?.content ??
-                      "";
-
-                    const parsed = debugParseReadingMarkdown(cachedMd);
-                    if (parsed?.sections?.length) {
-                      const withMeanings = parsed.sections.map((sec, idx) => {
-                        if (idx < 3 && spread[idx]?.meaning) {
-                          // Force heading to be just POSITION — MEANING (no card name)
-                          return {
-                            ...sec,
-                            heading: `${POSITIONS[idx].toUpperCase()} — ${spread[idx].meaning}`,
-                          };
-                        }
-                        return sec;
-                      });
-
-                      setReading({
-                        title: POSITIONS.join(" · "),
-                        sections: withMeanings,
-                        footer: parsed.footer || "For reflection — not certainty. 🌱",
-                      });
-
-                      const waitMs = performance.now() - (readingRequestStartMsRef.current || performance.now());
-                      clarityEvent("reading_loaded");
-                      claritySet("reading_wait_bucket", waitBucket(waitMs));
-                      // If the reading is visible when it arrives, count as "waited".
-                      if (isReadingOpenRef.current) clarityEvent("reading_waited");
-
-                      // If the user closed the modal while we were loading, reopen now.
-                      maybeReopenReadingModal();
-                    } else {
-                      setReading(fallbackReading());
-                      clarityEvent("reading_fallback_used");
-                      claritySet("reading_source", "fallback");
-                    }
-
-                    // If the user closed the modal while we were loading, reopen now.
-                    maybeReopenReadingModal();
-
-                    return;
-                  }
-
-                  setReadingError("");
-                  setIsReadingLoading(true);
-
-                  try {
-                    // 1) Build payload for your API
-                    const payload = buildPromptPayload();
-
-                    // 2) Call your LLM-backed API (Cloudflare worker / OpenRouter proxy)
-                    const apiReading = await fetchReadingFromApi(payload);
-
-                    claritySet("reading_source", "api");
-
-                    // Save for reuse if the cards (reveal) haven't changed
-                    setReadingCacheKey(key);
-                    setCachedApiReading(apiReading);
-
-                    // Debug: your worker returns { model, text, raw }
-                    console.log("[reading] raw api response:", apiReading);
-
-                    const md =
-                      apiReading?.text ??
-                      apiReading?.raw?.choices?.[0]?.message?.content ??
-                      "";
-
-                    const parsed = debugParseReadingMarkdown(md);
-
-                    if (parsed?.sections?.length) {
-                      const withMeanings = parsed.sections.map((sec, idx) => {
-                        if (idx < 3 && spread[idx]?.meaning) {
-                          // Force heading to be just POSITION — MEANING (no card name)
-                          return {
-                            ...sec,
-                            heading: `${POSITIONS[idx].toUpperCase()} — ${spread[idx].meaning}`,
-                          };
-                        }
-                        return sec;
-                      });
-
-                      setReading({
-                        title: POSITIONS.join(" · "),
-                        sections: withMeanings,
-                        footer: parsed.footer || "For reflection — not certainty. 🌱",
-                      });
-
-                      // If the user closed the modal while we were loading, reopen now.
-                      maybeReopenReadingModal();
-                    } else {
-                      setReading(fallbackReading());
-                      clarityEvent("reading_fallback_used");
-                      claritySet("reading_source", "fallback_parse");
-                      maybeReopenReadingModal();
-                    }
-                  } catch (err) {
-                    // Keep UI calm: fall back, but also show a subtle error
-                    setReadingError(
-                      "Couldn’t reach the reading service. Showing a local reflection instead."
-                    );
-                    clarityEvent("reading_api_error");
-                    claritySet("reading_source", "fallback_error");
-                    setReading(fallbackReading());
-                    maybeReopenReadingModal();
-                  } finally {
-                    setIsReadingLoading(false);
-                  }
-                }}
+                onClick={handleGetReading}
               >
                 <div className="flex flex-col items-center gap-3">
                   <span className="text-2xl md:text-3xl font-light tracking-tight text-neutral-100">
@@ -706,7 +855,7 @@ export default function TarotApp() {
             </div>
 
             {readingError ? (
-              <div className="-mt-10 mb-10 flex justify-center">
+              <div className="hidden md:flex -mt-10 mb-10 justify-center">
                 <div className="max-w-md text-center text-xs tracking-wide text-neutral-500">
                   {readingError}
                 </div>
