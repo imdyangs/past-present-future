@@ -781,9 +781,6 @@ export default function TarotApp() {
                     <div className="text-xs uppercase tracking-[0.25em] text-neutral-500 mb-1">
                       {POSITIONS[i]}
                     </div>
-                    <div className="text-[10px] uppercase tracking-[0.28em] text-neutral-600 mb-2">
-                      {firstMeaningWord(card.meaning)}
-                    </div>
                     <div className="rounded-2xl border border-neutral-800/70 bg-neutral-950/30 p-2">
                       <div className="relative rounded-xl overflow-hidden aspect-[3/5] bg-neutral-950">
                         <img
@@ -794,6 +791,9 @@ export default function TarotApp() {
                           className="w-full h-full object-contain"
                         />
                       </div>
+                    </div>
+                    <div className="mt-2 text-center text-[10px] uppercase tracking-[0.28em] text-neutral-600">
+                      {firstMeaningWord(card.meaning)}
                     </div>
                   </button>
                 ))}
