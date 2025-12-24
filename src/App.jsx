@@ -49,7 +49,7 @@ function ReadingModal({ open, onClose, title, sections, footer, loading, loading
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 md:p-8"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 md:p-8 pt-[calc(env(safe-area-inset-top)+16px)] pb-[calc(env(safe-area-inset-bottom)+16px)]"
       role="dialog"
       aria-modal="true"
       aria-label={title || "Reading"}
@@ -230,7 +230,7 @@ function CardDetailModal({ open, onClose, card, position }) {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 pt-[calc(env(safe-area-inset-top)+16px)] pb-[calc(env(safe-area-inset-bottom)+16px)]"
       role="dialog"
       aria-modal="true"
       aria-label={card.name || "Card"}
@@ -241,7 +241,7 @@ function CardDetailModal({ open, onClose, card, position }) {
         aria-label="Close card"
       />
 
-      <div className="relative w-full max-w-sm rounded-2xl border border-neutral-800 bg-neutral-950 text-neutral-100 overflow-hidden shadow-[0_30px_120px_rgba(0,0,0,0.75)]">
+      <div className="relative w-full max-w-sm rounded-2xl border border-neutral-800 bg-neutral-950 text-neutral-100 overflow-hidden shadow-[0_30px_120px_rgba(0,0,0,0.75)] flex flex-col max-h-[calc(100svh-2rem)]">
         <div
           className="pointer-events-none absolute inset-0"
           style={{
@@ -269,7 +269,7 @@ function CardDetailModal({ open, onClose, card, position }) {
           </button>
         </div>
 
-        <div className="relative px-5 pb-5">
+        <div className="relative px-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] overflow-y-auto">
           <div className="rounded-2xl border border-neutral-800/70 bg-neutral-950/30 p-4">
             <div className="relative rounded-xl overflow-hidden aspect-[3/5] bg-neutral-950">
               <img
