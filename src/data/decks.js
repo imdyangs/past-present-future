@@ -124,7 +124,7 @@ export const RIDER_WAITE_DECK = {
     { no: "07", name: "The Chariot", file: "RWS_Tarot_07_Chariot.jpg", meaning: "Drive, control, forward motion" },
     { no: "08", name: "Strength", file: "RWS_Tarot_08_Strength.jpg", meaning: "Courage, patience, inner power" },
     { no: "09", name: "The Hermit", file: "RWS_Tarot_09_Hermit.jpg", meaning: "Solitude, insight, guidance" },
-    { no: "10", name: "Wheel of Fortune", file: "RWS_Tarot_10_Wheel_of_Fortune.jpg", meaning: "Cycles, change, turning point" },
+    { no: "10", name: "Wheel of Fortune", file: "RWS_Tarot_10_Wheel_of_Fortune.jpg", meaning: "Cycles, fate, change" },
     { no: "11", name: "Justice", file: "RWS_Tarot_11_Justice.jpg", meaning: "Fairness, truth, consequences" },
     { no: "12", name: "The Hanged Man", file: "RWS_Tarot_12_Hanged_Man.jpg", meaning: "Pause, surrender, new perspective" },
     { no: "13", name: "Death", file: "RWS_Tarot_13_Death.jpg", meaning: "Endings, transformation, release" },
