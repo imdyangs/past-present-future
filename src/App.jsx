@@ -778,7 +778,7 @@ export default function TarotApp() {
                     className="text-left"
                     aria-label={`Open ${POSITIONS[i]} card: ${card.name}`}
                   >
-                    <div className="text-xs uppercase tracking-[0.25em] text-neutral-500 mb-1">
+                    <div className="text-xs uppercase tracking-[0.25em] text-neutral-500 mb-1 text-center">
                       {POSITIONS[i]}
                     </div>
                     <div className="rounded-2xl border border-neutral-800/70 bg-neutral-950/30 p-2">
@@ -792,7 +792,7 @@ export default function TarotApp() {
                         />
                       </div>
                     </div>
-                    <div className="mt-2 text-center text-[10px] uppercase tracking-[0.28em] text-neutral-600">
+                    <div className="mt-2 text-center text-[11px] uppercase tracking-[0.28em] text-neutral-400">
                       {firstMeaningWord(card.meaning)}
                     </div>
                   </button>
