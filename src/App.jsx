@@ -151,7 +151,7 @@ function ReadingModal({ open, onClose, title, sections, footer, loading, loading
 
                 <div className="mt-6 pt-5 border-t border-neutral-800/60">
                   <div className="flex items-center justify-between gap-4 text-xs tracking-wide text-neutral-500">
-                    <span>Listening for the pattern — usually 15–30 seconds</span>
+                    <span>Listening for the pattern — usually 15–20 seconds</span>
                     <span className="text-neutral-700">You can keep reading the cards while this loads.</span>
                   </div>
                 </div>
