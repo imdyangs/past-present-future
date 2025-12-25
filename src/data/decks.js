@@ -27,7 +27,7 @@ export const RWS_DESCRIPTIONS = {
     "02": "Quiet knowledge and subtle signals matter right now. Slow down, listen inward, and let what’s hidden reveal itself over time.",
     "03": "Growth comes through care, creativity, and receptivity. Nurture what you want to flourish and let it mature naturally.",
     "04": "Stability is built through structure and clear boundaries. Lead with calm authority and prioritize long-term foundations.",
-    "05": "Learning through tradition, mentorship, or shared values. Seek guidance, refine your beliefs, and commit to a disciplined path.",
+    "05": "Revealer of the holy. Learn through tradition and mentorship. Seek guidance, refine your beliefs, and commit to a disciplined path.",
     "06": "A meaningful choice about love, loyalty, or values. What you choose now shapes your direction more than what you desire.",
     "07": "Momentum through discipline and steering your energy. Win by focusing, not forcing—keep the reins in your hands.",
     "08": "Real power is gentle and steady, not loud. Meet challenges with patience, self-trust, and emotional bravery.",
